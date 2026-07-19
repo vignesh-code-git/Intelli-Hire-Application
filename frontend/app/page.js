@@ -7,6 +7,10 @@ import {
   PROJECT_BANK, CERTIFICATION_BANK, ACHIEVEMENT_BANK, SKILLSET_BANK, SECTION_LABELS,
 } from "./aiDataset";
 
+// Backend API base URL: set NEXT_PUBLIC_API_URL on Vercel to the Render
+// backend URL (e.g. https://intellihire-backend.onrender.com)
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 // Premium SVG Icon Components
 const SparklesIcon = ({ className = "icon-svg", style }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} style={{ width: "1.25rem", height: "1.25rem", ...style }}>
@@ -1165,7 +1169,7 @@ export default function Home() {
   const buildSectionSuggestions = async (section) => {
     const role = getRoleType(cvDraftData?.position || '');
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/cv-content/?section=${section}&role=${role}&count=4`);
+      const res = await fetch(`${API_BASE}/api/cv-content/?section=${section}&role=${role}&count=4`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.options) && data.options.length > 0) {
@@ -1323,7 +1327,7 @@ export default function Home() {
   useEffect(() => {
     const fetchJobs = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/jobs/");
+        const res = await fetch(`${API_BASE}/api/jobs/`);
         const data = await res.json();
         if (res.ok) {
           setJobs(data.jobs || []);
@@ -1336,7 +1340,7 @@ export default function Home() {
 
     const fetchStats = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/stats/");
+        const res = await fetch(`${API_BASE}/api/stats/`);
         const data = await res.json();
         if (res.ok) setPlatformStats(data);
       } catch (err) {
@@ -1791,7 +1795,7 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
 
     try {
       // Step 1 — Parse
-      const res = await fetch('http://127.0.0.1:8000/api/parse/', { method: 'POST', body: formData });
+      const res = await fetch(`${API_BASE}/api/parse/`, { method: 'POST', body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to parse CV file.');
 
@@ -1816,7 +1820,7 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
       optFormData.append('job_id', targetJobId);
       optFormData.append('cv_text', data.text);
 
-      const optRes = await fetch('http://127.0.0.1:8000/api/optimize/', { method: 'POST', body: optFormData });
+      const optRes = await fetch(`${API_BASE}/api/optimize/`, { method: 'POST', body: optFormData });
       const optData = await optRes.json();
       if (!optRes.ok) throw new Error(optData.error || 'Failed to optimize CV.');
       setCustomOptimizationResult(optData);
@@ -1834,7 +1838,7 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
 
       // Step 3 — Recommend
       setUploadStep('recommending');
-      const recRes = await fetch('http://127.0.0.1:8000/api/recommend/', { method: 'POST', body: optFormData });
+      const recRes = await fetch(`${API_BASE}/api/recommend/`, { method: 'POST', body: optFormData });
       const recData = await recRes.json();
       if (recRes.ok) setCustomRecommendations(recData.recommendations || []);
 
@@ -1879,7 +1883,7 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
 
     try {
       // 1. Optimize CV API
-      const optRes = await fetch("http://127.0.0.1:8000/api/optimize/", {
+      const optRes = await fetch(`${API_BASE}/api/optimize/`, {
         method: "POST",
         body: formData,
       });
@@ -1900,7 +1904,7 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
       setCvDraftData(optimizedStructured);
 
       // 2. Job Recommendations API
-      const recRes = await fetch("http://127.0.0.1:8000/api/recommend/", {
+      const recRes = await fetch(`${API_BASE}/api/recommend/`, {
         method: "POST",
         body: formData,
       });
@@ -1965,7 +1969,7 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
 
     if (isAssistantQuery(userText)) {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/chat/", {
+        const res = await fetch(`${API_BASE}/api/chat/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: userText }),
