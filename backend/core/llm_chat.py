@@ -11,7 +11,10 @@ Face hub into the local cache; after that it works fully offline.
 import os
 import re
 
-from .ai_chat import GREETING_PATTERNS, THANKS_PATTERNS, DEFAULT_SUGGESTIONS, find_role, search_jobs
+from .ai_chat import (
+    GREETING_PATTERNS, THANKS_PATTERNS, DEFAULT_SUGGESTIONS,
+    find_role, search_jobs, _job_payload,
+)
 
 MODEL_NAME = os.getenv('LOCAL_LLM_MODEL', 'Qwen/Qwen2.5-0.5B-Instruct')
 MAX_NEW_TOKENS = 260
@@ -34,7 +37,7 @@ def _get_pipeline():
     return _pipeline
 
 
-def _build_context(message):
+def _build_context(message, jobs):
     """Retrieve grounding data (role profile + matching jobs) for the prompt."""
     parts = []
     role = find_role(message.lower())
@@ -44,7 +47,6 @@ def _build_context(message):
             f"Salary (India): fresher {role['salary']['fresher']}, mid {role['salary']['mid']}, "
             f"senior {role['salary']['senior']}. Career path: {role['career_path']}."
         )
-    jobs = search_jobs(message.lower(), limit=3)
     if jobs:
         listings = "; ".join(
             f"{j.title} at {j.company}, {j.location} ({j.salary_range or 'salary not specified'})"
@@ -75,7 +77,8 @@ def generate_llm_reply(message):
             "if it isn't, answer from general career knowledge. Never invent specific "
             "job listings or salary figures beyond the data given."
         )
-        context = _build_context(message)
+        jobs = search_jobs(message.lower(), limit=3)
+        context = _build_context(message, jobs)
         if context:
             system_prompt += "\n\nPlatform data:\n" + context
 
@@ -99,7 +102,10 @@ def generate_llm_reply(message):
 
         if not reply:
             return None
-        return {"reply": reply, "suggestions": DEFAULT_SUGGESTIONS, "source": "llm"}
+        result = {"reply": reply, "suggestions": DEFAULT_SUGGESTIONS, "source": "llm"}
+        if jobs:
+            result["jobs"] = _job_payload(jobs)
+        return result
     except Exception:
         import traceback
         traceback.print_exc()

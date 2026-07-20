@@ -1668,3 +1668,36 @@ body {
   30% { transform: translateY(-5px); opacity: 1; }
 }
 
+
+/* Section edit icon — premium pencil button beside each CV heading */
+.section-edit-icon {
+  color: var(--accent-blue);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.5rem;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  background-color: rgba(37, 99, 235, 0.06);
+  border-radius: 7px;
+  padding: 0.24rem 0.3rem;
+  z-index: 5;
+}
+
+.section-edit-icon:hover {
+  opacity: 1;
+  background-color: rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.18);
+}
+
+.printing-pdf .section-edit-icon {
+  display: none !important;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}

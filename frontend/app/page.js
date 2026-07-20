@@ -20,6 +20,13 @@ const SparklesIcon = ({ className = "icon-svg", style }) => (
   </svg>
 );
 
+const EditPencilIcon = ({ className = "", style }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={{ width: "0.82rem", height: "0.82rem", ...style }}>
+    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    <path d="m15 5 4 4" />
+  </svg>
+);
+
 const SearchIcon = ({ className = "icon-svg", style }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} style={{ width: "1.1rem", height: "1.1rem", ...style }}>
     <circle cx="11" cy="11" r="8" />
@@ -639,7 +646,7 @@ export default function Home() {
   // States and helper functions for step-by-step CV section editing & highlights
   const [highlightedSection, setHighlightedSection] = useState('header'); 
   const [completedSections, setCompletedSections] = useState(['header']);
-  const [headerQuestionIdx, setHeaderQuestionIdx] = useState(0); // chat starts by asking the user's name
+  const [headerQuestionIdx, setHeaderQuestionIdx] = useState(null); // legacy step-by-step header flow (replaced by the header form card)
 
   const isSectionVisible = (sectionName) => {
     return true;
@@ -793,12 +800,15 @@ export default function Home() {
   const getSectionStyle = (sectionName) => {
     const isHighlighted = highlightedSection === sectionName;
     return {
-      border: isHighlighted ? '2.5px dashed var(--accent-blue)' : '2.5px dashed transparent',
-      borderRadius: '10px',
-      padding: isHighlighted ? '0.85rem' : '0.25rem',
-      backgroundColor: isHighlighted ? 'rgba(37, 99, 235, 0.05)' : 'transparent',
+      border: isHighlighted ? '1px solid rgba(37, 99, 235, 0.25)' : '1px solid transparent',
+      borderLeft: isHighlighted ? '4px solid var(--accent-blue)' : '4px solid transparent',
+      borderRadius: '12px',
+      padding: isHighlighted ? '0.85rem 0.85rem 0.85rem 1rem' : '0.25rem 0.25rem 0.25rem 0.55rem',
+      background: isHighlighted
+        ? 'linear-gradient(90deg, rgba(37, 99, 235, 0.06) 0%, rgba(37, 99, 235, 0.02) 60%, transparent 100%)'
+        : 'transparent',
       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      boxShadow: isHighlighted ? '0 8px 24px rgba(37, 99, 235, 0.12)' : 'none',
+      boxShadow: isHighlighted ? '0 10px 30px rgba(37, 99, 235, 0.10)' : 'none',
       position: 'relative',
       marginBottom: '0.85rem',
       cursor: 'pointer'
@@ -810,21 +820,25 @@ export default function Home() {
     return (
       <span style={{
         position: 'absolute',
-        top: '-11px',
+        top: '-10px',
         right: '14px',
-        backgroundColor: 'var(--accent-blue)',
+        background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
         color: '#ffffff',
-        fontSize: '0.65rem',
+        fontSize: '0.62rem',
         fontWeight: 800,
-        padding: '0.2rem 0.6rem',
-        borderRadius: '5px',
+        padding: '0.22rem 0.7rem',
+        borderRadius: '50px',
         textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-        boxShadow: '0 3px 8px rgba(37,99,235,0.25)',
+        letterSpacing: '0.07em',
+        boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
         zIndex: 10,
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.32rem',
       }}>
-        Editing Section
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ffffff', display: 'inline-block', animation: 'pulse 1.6s ease-in-out infinite' }} />
+        Editing
       </span>
     );
   };
@@ -860,90 +874,24 @@ export default function Home() {
 
   // AI Chat & Template Profile States
   const [activeProfile, setActiveProfile] = useState("python");
-  const [chatMessages, setChatMessages] = useState([
-    { id: 1, sender: "ai", text: "**What is your name?**" }
-  ]);
+  const [chatMessages, setChatMessages] = useState([]);
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [platformStats, setPlatformStats] = useState(null);
   const [chatInput, setChatInput] = useState("");
   const [isChatCollapsed, setIsChatCollapsed] = useState(true);
+  const chatEndRef = useRef(null);
+
+  // Keep the newest message (or typing indicator) in view
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [chatMessages, isOptimizing]);
   const [chatStep, setChatStep] = useState(0); // 0: Init, 1: Name/Position request, 2: Contacts/Location request, 3: Projects/Education request, 4: Free edit mode
   const [cvDraftData, setCvDraftData] = useState({
-    name: "Name",
-    position: "Software Developer",
-    phone: "+91 00000 00000",
-    email: "name@gmail.com",
-    location: "City, State, India",
-    portfolio: "name.vercel.app",
-    linkedin: "linkedin.com/in/name",
-    github: "github.com/name",
-    summary: "Full Stack Developer with 10+ months of hands-on internship experience building and shipping production-ready web applications using React.js, TypeScript, Next.js, Python (Django/FastAPI), and PostgreSQL. Independently architected and deployed RentFlow – a live PWA with 20+ API endpoints, JWT-based RBAC, and real-time financial dashboards (frontend on Vercel, backend on Render, database on Supabase). Led backend development for a 5-member CRM team and team-led 2 full-stack projects end-to-end. Seeking a Full Stack, Frontend, or Backend Developer role to contribute to a product-focused engineering team.",
-    skills: {
-      frontend: "React.js, Redux Toolkit, Next.js, TypeScript, JavaScript (ES6+), HTML5, CSS3, Tailwind CSS, Bootstrap 5, Material UI, Vite",
-      backend: "Python, Django, Django REST Framework (DRF), FastAPI, Pydantic, Uvicorn, ASGI, REST API, JWT Authentication, RBAC, REST API Design",
-      database: "PostgreSQL, MySQL, Supabase, Django ORM, Raw SQL, Relational Schema Design",
-      tools: "Git, GitHub, GitLab, Postman, VS Code, Figma, Vercel, Render, Supabase, Cloudflare, Cloud Deployment, Docker (basic), GitHub Actions",
-      concepts: "Full Stack Development, Agile/Scrum, PWA, State Management, Component Architecture, Team Leadership",
-      ai: "Gemini API, OpenAI API, LLM Integration, Prompt Engineering, RAG Architectures"
-    },
-    experience: [
-      {
-        company: "TechNova Solutions",
-        place: "City, State",
-        position: "Software Developer Intern",
-        duration: "Jan 2024 – Present",
-        bullets: [
-          "Developed and shipped full-stack web applications using React.js, Node.js, and PostgreSQL.",
-          "Implemented 20+ REST API endpoints with JWT authentication and Role-Based Access Control (RBAC).",
-          "Collaborated in Agile/Scrum sprints using Git and GitHub for version control and code reviews.",
-          "Optimized relational database schemas, reducing query latency by [35%].",
-          "Configured production deployments on cloud platforms, improving server response times by [30%]."
-        ]
-      },
-      {
-        company: "Digital Craft Labs",
-        place: "City, State",
-        position: "Junior Developer",
-        duration: "Jun 2023 – Dec 2023",
-        bullets: [
-          "Built responsive user interfaces with React.js and Tailwind CSS.",
-          "Created backend endpoints using Express.js and Node.js, ensuring efficient data processing.",
-          "Integrated third-party APIs and analytics dashboard widgets for real-time metrics."
-        ]
-      }
-    ],
-    projects: [
-      {
-        name: "ProjectAlpha – Full-Stack Web Application",
-        duration: "Jan 2024 – Present",
-        tech: "React • Node.js • PostgreSQL • Tailwind CSS • JWT • Vercel",
-        bullets: [
-          "Designed and deployed a full-stack web application with 15+ REST API endpoints.",
-          "Implemented JWT-based authentication, role access controls, and real-time dashboards.",
-          "Reduced database query latency by [30%] through schema indexing and query profiling."
-        ]
-      },
-      {
-        name: "ProjectBeta – E-Commerce Platform",
-        duration: "Aug 2023 – Dec 2023",
-        tech: "Django • PostgreSQL • Bootstrap 5 • Python",
-        bullets: [
-          "Built a full-featured e-commerce platform with product catalog, cart, and secure user checkout.",
-          "Optimized item retrieval speeds using Django ORM query filters and caching."
-        ]
-      }
-    ],
-    education: "Bachelor of Technology in Computer Science (Graduated 2023) • State Technical University",
-    certifications: [
-      "Full Stack Developer Certification (2023)",
-      "Cloud Fundamentals – AWS (2022)",
-      "Agile & Scrum Practitioner (2022)"
-    ],
-    achievements: [
-      "Best Project Award – Built a scalable app prototype in under 3 hours at college hackathon.",
-      "Team Lead: Led a 4-member team delivering a production-ready CRM application on schedule."
-    ]
+    name: "", position: "", phone: "", email: "", location: "",
+    portfolio: "", linkedin: "", github: "",
+    summary: "", skills: {}, experience: [], projects: [],
+    education: "", certifications: [], achievements: [],
   });
 
   const fileInputRef = useRef(null);
@@ -961,6 +909,159 @@ export default function Home() {
     setChatMessages(prev => [...prev, { id: Date.now() + Math.random(), sender: 'ai', ...msg }]);
 
   const NEXT_ORDER = ['header', 'summary', 'skills', 'experience', 'projects', 'education', 'certifications', 'achievements'];
+
+  // ── Guided CV builder (suggestion-first, no free typing required) ──
+  const guidedRef = useRef(false); // true while the step-by-step build flow is active
+
+  const emptyCv = (position) => ({
+    name: "", position: position || "", phone: "", email: "", location: "",
+    portfolio: "", linkedin: "", github: "", headerSkills: [],
+    summary: "", skills: {}, experience: [], projects: [],
+    education: "", certifications: [], achievements: [],
+  });
+
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const YEARS = Array.from({ length: 14 }, (_, i) => String(2026 - i));
+
+  // Master chip pool per skills category — merged with the role-recommended set
+  const SKILL_SUGGESTION_POOL = {
+    frontend: ["React.js", "Next.js", "TypeScript", "JavaScript (ES6+)", "HTML5", "CSS3", "Tailwind CSS", "Redux Toolkit", "Vue.js", "Angular", "Bootstrap 5", "Material UI", "Vite"],
+    backend: ["Python", "Django", "FastAPI", "Node.js", "Express.js", "REST APIs", "GraphQL", "JWT Authentication", "Spring Boot", "Microservices"],
+    database: ["PostgreSQL", "MySQL", "MongoDB", "Redis", "SQLite", "Supabase", "Firebase", "Django ORM"],
+    tools: ["Git", "GitHub", "Docker", "AWS", "Vercel", "Render", "Postman", "VS Code", "GitHub Actions", "Linux", "Figma", "Jira"],
+    concepts: ["Agile/Scrum", "CI/CD", "OOP", "System Design", "Data Structures & Algorithms", "Unit Testing", "Responsive Design", "State Management"],
+    ai: ["LLM Integration", "Prompt Engineering", "Hugging Face Transformers", "scikit-learn", "TensorFlow", "PyTorch", "LangChain", "RAG"],
+  };
+
+  // Which skill categories make sense for each role — e.g. a Frontend Developer
+  // shouldn't be offered a heavy Backend section (and vice versa)
+  const ROLE_SKILL_CATEGORIES = {
+    frontend: ['frontend', 'database', 'tools', 'concepts', 'ai'],
+    backend: ['backend', 'database', 'tools', 'concepts', 'ai'],
+    fullstack: ['frontend', 'backend', 'database', 'tools', 'concepts', 'ai'],
+    data: ['backend', 'database', 'tools', 'concepts', 'ai'],
+    devops: ['backend', 'database', 'tools', 'concepts', 'ai'],
+    mobile: ['frontend', 'backend', 'database', 'tools', 'concepts'],
+    design: ['frontend', 'tools', 'concepts'],
+    qa: ['frontend', 'backend', 'tools', 'concepts'],
+  };
+
+  // Category whose skills appear in the CV header strip, per role
+  const ROLE_PRIMARY_SKILL_CAT = {
+    frontend: 'frontend', backend: 'backend', fullstack: 'frontend', data: 'backend',
+    devops: 'tools', mobile: 'frontend', design: 'frontend', qa: 'tools',
+  };
+
+  const roleSkillCategories = () => {
+    const role = getRoleType(cvDraftData?.position || '');
+    return ROLE_SKILL_CATEGORIES[role] || Object.keys(SKILL_SUGGESTION_POOL);
+  };
+
+  // Pool of headline-skill chips for the header form — the skills that define
+  // the role (frontend dev → frontend skills, devops → tools, ...)
+  const headerSkillPool = () => {
+    const role = getRoleType(cvDraftData?.position || '');
+    const cat = ROLE_PRIMARY_SKILL_CAT[role] || 'frontend';
+    const bank = ((SKILLSET_BANK[role] || SKILLSET_BANK.fullstack || {})[cat] || '');
+    const bankItems = bank.split(',').map(s => s.trim()).filter(Boolean);
+    return [...new Set([...bankItems, ...(SKILL_SUGGESTION_POOL[cat] || [])])].slice(0, 14);
+  };
+
+  const HEADER_SKILL_LIMIT = 6;
+  const toggleHeaderSkill = (skill) => {
+    setCvDraftData(prev => {
+      const cur = Array.isArray(prev.headerSkills) ? [...prev.headerSkills] : [];
+      const i = cur.findIndex(s => s.toLowerCase() === skill.toLowerCase());
+      if (i >= 0) cur.splice(i, 1);
+      else if (cur.length < HEADER_SKILL_LIMIT) cur.push(skill);
+      return { ...prev, headerSkills: cur };
+    });
+  };
+
+  const cvSkillHas = (cat, skill) => {
+    const cur = (cvDraftData?.skills?.[cat] || '');
+    return cur.toLowerCase().split(',').map(s => s.trim()).includes(skill.toLowerCase());
+  };
+
+  const toggleCvSkill = (cat, skill) => {
+    setCvDraftData(prev => {
+      const skills = { ...(prev.skills || {}) };
+      const items = (skills[cat] || '').split(',').map(s => s.trim()).filter(s => s && s !== '—');
+      const i = items.findIndex(s => s.toLowerCase() === skill.toLowerCase());
+      if (i >= 0) items.splice(i, 1); else items.push(skill);
+      skills[cat] = items.join(', ');
+      return { ...prev, skills };
+    });
+  };
+
+  const saveHeaderForm = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const get = (k) => (fd.get(k) || '').toString().trim();
+    setCvDraftData(prev => ({
+      ...prev,
+      name: get('name') || prev.name,
+      position: get('position') || prev.position,
+      phone: get('phone') || prev.phone,
+      email: get('email') || prev.email,
+      location: get('location') || prev.location,
+      portfolio: get('portfolio') || prev.portfolio,
+      linkedin: get('linkedin') || prev.linkedin,
+      github: get('github') || prev.github,
+    }));
+    handleSectionProgress('name');
+    advanceGuided('header');
+  };
+
+  const saveExperienceForm = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const get = (k) => (fd.get(k) || '').toString().trim();
+    const present = fd.get('present') === 'on';
+    const duration = `${get('fromMonth')} ${get('fromYear')} – ${present ? 'Present' : `${get('toMonth')} ${get('toYear')}`}`;
+    const picked = fd.getAll('bullets').map(String);
+    const own = get('ownBullets').split('\n').map(l => l.trim()).filter(Boolean).map(polishLine);
+    const bullets = [...picked, ...own];
+    const entry = {
+      position: get('position') || cvDraftData?.position || 'Position',
+      company: get('company') || 'Company',
+      place: get('place') || '',
+      duration,
+      bullets: bullets.length ? bullets : ['Contributed to the development and delivery of production applications.'],
+    };
+    setCvDraftData(prev => ({ ...prev, experience: [entry] }));
+    handleSectionProgress('experience');
+    advanceGuided('experience');
+  };
+
+  // Advance the guided flow to the next section; finish with the completion message.
+  const advanceGuided = (fromSection) => {
+    setSectionEditFlow(null);
+    const idx = NEXT_ORDER.indexOf(fromSection);
+    const next = NEXT_ORDER[idx + 1];
+    if (guidedRef.current && next) {
+      openSectionEditor(next, fromSection);
+      return;
+    }
+    if (guidedRef.current && !next) {
+      guidedRef.current = false;
+      setHighlightedSection(null);
+      pushAiMessage({
+        text: "🎉 **Your CV is completed!** It's ready on the left.\n\n" +
+          "Want to refine anything? **Click any section on the CV** (or use the Edit Section bar) — pick new suggestions, or type your own content and I'll polish it into professional wording. ",
+        options: [
+          { label: '⬇️ Download PDF', action: 'download' },
+          { label: '👁️ View CV', action: 'view' },
+        ],
+      });
+      return;
+    }
+    // Section edited outside the guided flow — confirm briefly, stay put
+    if (fromSection) {
+      pushAiMessage({ text: `✅ **${SECTION_LABELS[fromSection]} updated** — it's live on your CV. Click any other section to keep refining.` });
+    }
+    setHighlightedSection(null);
+  };
 
   const nextSectionOptions = (current) => {
     const idx = NEXT_ORDER.indexOf(current);
@@ -983,21 +1084,64 @@ export default function Home() {
     achievements: "List your achievements, one per line.",
   };
 
-  const openSectionEditor = (section) => {
+  const openSectionEditor = async (section, savedFrom = null) => {
     setHighlightedSection(section);
+    setHeaderQuestionIdx(null);
+    // Interactive transition: confirm what was saved, introduce what comes next
+    const savedNote = savedFrom ? `✅ **${SECTION_LABELS[savedFrom]} saved** — it's live on your CV.\n\n` : '';
+    const stepTag = guidedRef.current
+      ? `${savedNote}**Step ${NEXT_ORDER.indexOf(section) + 1} of ${NEXT_ORDER.length} — ${SECTION_LABELS[section]}.** `
+      : `${savedNote}**${SECTION_LABELS[section]}** — `;
+
     if (section === 'header') {
-      // Header is always filled manually, step by step — never AI-generated
       setSectionEditFlow(null);
-      setHeaderQuestionIdx(0);
-      pushAiMessage({ text: "Let's fill your header details manually. **What is your full name?**" });
+      pushAiMessage({ text: `${stepTag}Fill in your details below and press Save:`, headerForm: true });
       return;
     }
-    setHeaderQuestionIdx(null);
-    setSectionEditFlow({ section, stage: 'await-own' });
+
+    if (section === 'skills') {
+      setSectionEditFlow(null);
+      // Pre-select the recommended set for the role when skills are still empty
+      setCvDraftData(prev => {
+        const hasAny = prev?.skills && Object.values(prev.skills).some(v => v && v !== '—');
+        if (hasAny) return prev;
+        const role = getRoleType(prev?.position || '');
+        const rec = SKILLSET_BANK[role] || SKILLSET_BANK.fullstack || Object.values(SKILLSET_BANK)[0];
+        // Pre-select only the categories that make sense for this role
+        const allowed = ROLE_SKILL_CATEGORIES[role] || Object.keys(rec);
+        const filtered = {};
+        allowed.forEach(c => { if (rec[c]) filtered[c] = rec[c]; });
+        return { ...prev, skills: filtered };
+      });
+      pushAiMessage({
+        text: `${stepTag}Tap chips to add or remove skills — the recommended set for your role is pre-selected:`,
+        skillsPicker: true,
+        options: [{ label: '✓ Done — next section', action: 'section-done', section: 'skills' }],
+      });
+      return;
+    }
+
+    if (section === 'experience') {
+      setSectionEditFlow(null);
+      pushAiMessage({
+        text: `${stepTag}Fill in the details and pick the months and years — or apply a ready-made suggestion:`,
+        experienceForm: true,
+        options: [
+          { label: 'Use AI suggestion instead', action: 'ai-suggest', section: 'experience' },
+          { label: 'Skip for now', action: 'skip', section: 'experience' },
+        ],
+      });
+      return;
+    }
+
+    // Every other section goes straight to tappable suggestion cards — no typing needed
+    const cards = await buildSectionSuggestions(section);
+    setSectionEditFlow({ section, stage: 'pick' });
     pushAiMessage({
-      text: `**${SECTION_LABELS[section] || section}** — ${SECTION_QUESTIONS[section] || 'Type the details you want in this section.'}`,
+      text: `${stepTag}Tap a suggestion to apply it:`,
+      cards: cards.map(c => ({ ...c, section })),
       options: [
-        { label: 'Use AI suggestions instead', action: 'ai-suggest', section },
+        { label: "I'll type my own instead", action: 'own', section },
         { label: 'Skip for now', action: 'skip', section },
       ],
     });
@@ -1008,6 +1152,8 @@ export default function Home() {
     let t = line.trim().replace(/^[-•*]\s*/, '');
     if (!t) return t;
     t = t.charAt(0).toUpperCase() + t.slice(1);
+    t = t.replace(/\bi\b/g, 'I'); // standalone "i" → "I"
+    t = t.replace(/\s+/g, ' ');
     if (!/[.!?]$/.test(t)) t += '.';
     return t;
   };
@@ -1185,18 +1331,29 @@ export default function Home() {
   // The AI icon on each CV preview section cycles through alternative content
   const altCacheRef = useRef({});
   const cycleSectionAlternative = async (section) => {
+    const roleKey = getRoleType(cvDraftData?.position || '');
     let cache = altCacheRef.current[section];
-    if (!cache || cache.cards.length === 0) {
-      const cards = await buildSectionSuggestions(section);
+    // Rebuild the cache when the target role changed so alternatives always match the job role
+    if (!cache || cache.role !== roleKey || cache.cards.length === 0) {
+      let cards = await buildSectionSuggestions(section);
+      // Blend in polished variants of the user's own content so alternatives
+      // stay personal, not just generic role templates
+      if (section === 'summary' && cvDraftData?.summary) {
+        try {
+          const own = buildPolishedCards('summary', cvDraftData.summary)
+            .map(c => ({ ...c, title: `From your content — ${c.title}` }));
+          cards = [...own, ...cards];
+        } catch (err) { /* fall back to role suggestions only */ }
+      }
       if (!cards || cards.length === 0) return;
-      cache = { cards, idx: -1 };
+      cache = { cards, idx: -1, role: roleKey };
       altCacheRef.current[section] = cache;
     }
     cache.idx = (cache.idx + 1) % cache.cards.length;
     applyPayload(section, cache.cards[cache.idx].payload);
     setHighlightedSection(section);
     pushAiMessage({
-      text: `Generated an alternative **${SECTION_LABELS[section]}** (version ${cache.idx + 1} of ${cache.cards.length}). Click the AI icon again for another version, or click the section to enter your own details.`,
+      text: `✨ Applied **${SECTION_LABELS[section]}** alternative ${cache.idx + 1} of ${cache.cards.length}, tailored to **${cvDraftData?.position || 'your role'}**. Click the icon again for another — or click the section to edit the text yourself.`,
     });
   };
 
@@ -1204,20 +1361,26 @@ export default function Home() {
     applyPayload(section, payload);
     setSectionEditFlow(null);
     handleSectionProgress(section);
-    pushAiMessage({
-      text: `**${SECTION_LABELS[section]}** updated — it's live on the CV preview. You can re-open any section from the Edit Section bar whenever you like.`,
-      options: nextSectionOptions(section),
-    });
+    // No acknowledgment chatter — move straight to the next step (or finish)
+    advanceGuided(section);
   };
 
   const handleChatOption = async (opt) => {
     if (!opt || !opt.action) return;
     if (opt.action === 'open') { openSectionEditor(opt.section); return; }
     if (opt.action === 'download') { handleDownloadPdf(); return; }
+    if (opt.action === 'view') {
+      document.getElementById('cv-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (opt.action === 'section-done') {
+      handleSectionProgress(opt.section);
+      advanceGuided(opt.section);
+      return;
+    }
     if (opt.action === 'skip') {
       setSectionEditFlow(null);
-      setHighlightedSection(null);
-      pushAiMessage({ text: 'No problem — click any CV section whenever you want to edit it.' });
+      advanceGuided(opt.section);
       return;
     }
     if (opt.action === 'own') {
@@ -1408,361 +1571,36 @@ export default function Home() {
   };
 
   // Generate resume data based on selected job suggestions pill
-  const handlePillClick = async (pill) => {
+  const handlePillClick = (pill) => {
     setActivePill(pill);
     setSearchQuery(pill);
-
-    const cleanPosition = pill;
-    const cleanName = "Name";
-    const cleanEmail = "name@gmail.com";
-    const cleanPhone = "+91 00000 00000";
-    const cleanLocation = "City, State, India";
-    const cleanLinkedin = "linkedin.com/in/name";
-    const cleanGithub = "github.com/name";
-    
-    let summary = `Experienced and result-driven [${cleanPosition}] with a strong background in software development. Skilled in architecting, developing, and deploying scalable web solutions, optimizing frontend user interfaces, and building resilient backend services. Proven track record of improving system performance and delivering high-quality user experiences.`;
-    
-    let skills = {
-      frontend: "React, Next.js, HTML5, CSS3, Tailwind CSS, JavaScript (ES6+), TypeScript",
-      backend: "Node.js, Express, Python, Django, REST APIs, Microservices",
-      database: "PostgreSQL, MongoDB, MySQL, Redis",
-      tools: "Docker, Git, GitHub Actions, AWS, Vercel, Render",
-      concepts: "Agile, Scrum, CI/CD, OOP, RESTful API Design",
-      ai: "LLM Integration, Prompt Engineering, Gemini AI API"
-    };
-
-    let experience = [];
-    let projects = [];
-
-    const lowerPill = pill.toLowerCase();
-    if (lowerPill.includes("frontend") || lowerPill.includes("ux") || lowerPill.includes("ui")) {
-      summary = `Dedicated [Frontend Engineer] with [3+ years] of expertise building responsive web applications using [React.js], [Next.js], and [TypeScript]. Expert in UI/UX fidelity, client-side state management, and optimizing frontend performance to achieve [95+ Lighthouse scores].`;
-      skills.frontend = "React.js, Next.js, TypeScript, Redux Toolkit, Tailwind CSS, CSS Modules, HTML5/CSS3";
-      skills.backend = "Node.js, REST APIs (integration), GraphQL";
-      experience = [
-        {
-          company: "PixelCraft Solutions",
-          place: "Bangalore, India",
-          position: "Senior Frontend Developer",
-          duration: "2023 - Present",
-          bullets: [
-            "Engineered responsive user interfaces in [React.js] and [Next.js] for an e-commerce platform, reducing cumulative layout shift by [45%].",
-            "Leveraged [TypeScript] to build reusable design components, reducing UI development iteration time by [30%].",
-            "Optimized client-side bundle size using code splitting and lazy loading, achieving [95+ Lighthouse performance scores]."
-          ]
-        },
-        {
-          company: "WebCreations Inc.",
-          place: "Kochi, India",
-          position: "Junior UI Engineer",
-          duration: "2021 - 2023",
-          bullets: [
-            "Collaborated with product designers to implement pixel-perfect user dashboards using [Tailwind CSS].",
-            "Maintained high-fidelity user workflows using React Router, increasing conversion rate by [15%]."
-          ]
-        }
-      ];
-      projects = [
-        {
-          name: "DashboardX - Interactive Analytics Console",
-          duration: "3 months",
-          tech: "React • Next.js • Tailwind CSS • Recharts",
-          bullets: [
-            "Designed and implemented high-performance real-time data charts displaying telemetry analytics with low rendering overhead.",
-            "Integrated secure user sessions and route protection configurations."
-          ]
-        }
-      ];
-    } else if (lowerPill.includes("devops") || lowerPill.includes("cloud") || lowerPill.includes("architect")) {
-      summary = `Certified [DevOps & Cloud Engineer] with [4+ years] of experience specializing in [AWS], [Infrastructure as Code (IaC)] with Terraform, container orchestration via [Kubernetes], and building secure [CI/CD automation pipelines].`;
-      skills.tools = "Docker, Kubernetes, Terraform, Ansible, Jenkins, GitHub Actions, AWS CloudFormation";
-      experience = [
-        {
-          company: "InfraScale Tech",
-          place: "Hyderabad, India",
-          position: "Senior DevOps Cloud Engineer",
-          duration: "2023 - Present",
-          bullets: [
-            "Provisioned high-availability cloud infrastructure on [AWS] utilizing [Terraform], reducing deployment setup times by [75%].",
-            "Configured [Kubernetes (EKS)] clusters to autoscale dynamically during peak traffic hours, securing [99.99% system availability].",
-            "Established zero-downtime Blue-Green deployment strategies in Jenkins."
-          ]
-        },
-        {
-          company: "CloudSystem Ltd",
-          place: "Chennai, India",
-          position: "Systems Administrator",
-          duration: "2020 - 2023",
-          bullets: [
-            "Managed secure server backups and configured Bash automation scripts.",
-            "Audited enterprise user access policies in AWS IAM to ensure compliance standards."
-          ]
-        }
-      ];
-      projects = [
-        {
-          name: "AutoDeploy - GitOps Deployment pipeline",
-          duration: "4 months",
-          tech: "Kubernetes • Terraform • AWS • ArgoCD",
-          bullets: [
-            "Built a declarative CI/CD pipeline using GitOps patterns, resulting in seamless rollbacks and configurations drift tracking."
-          ]
-        }
-      ];
-    } else if (lowerPill.includes("data") || lowerPill.includes("machine") || lowerPill.includes("science")) {
-      summary = `Analytical [Data Scientist & ML Engineer] specializing in [Python], predictive modeling, [Scikit-Learn], and big data analytics. Expert in engineering data pipelines and translating statistics into direct business revenue.`;
-      skills.backend = "Python, Pandas, NumPy, Scikit-Learn, PyTorch, SQL";
-      skills.database = "PostgreSQL, Snowflake, Spark, SQLite";
-      experience = [
-        {
-          company: "InsightData Labs",
-          place: "Pune, India",
-          position: "Lead Data Scientist",
-          duration: "2022 - Present",
-          bullets: [
-            "Architected recommendation engines using [Python] and [Scikit-Learn] that increased customer retention by [20%].",
-            "Developed predictive ETL pipelines handling 2M+ database rows daily using Spark and Snowflake.",
-            "Optimized search performance of historical data models, lowering querying overhead by [35%]."
-          ]
-        },
-        {
-          company: "DataMetrics Corp",
-          place: "Mumbai, India",
-          position: "Data Analyst",
-          duration: "2020 - 2022",
-          bullets: [
-            "Formulated complex SQL queries to compile corporate metrics and designed interactive dashboards in Tableau."
-          ]
-        }
-      ];
-      projects = [
-        {
-          name: "ChurnRadar - Customer Retention Predictor",
-          duration: "3 months",
-          tech: "Python • Scikit-Learn • Pandas • Flask",
-          bullets: [
-            "Trained gradient boosting models to classify customer churn patterns, achieving 91% accuracy scores."
-          ]
-        }
-      ];
-    } else if (lowerPill.includes("product") || lowerPill.includes("manager")) {
-      summary = `Strategic [Technical Product Manager] with [4+ years] of experience leading cross-functional teams to ship scalable features. Expert in [Agile/Scrum roadmaps] and data-driven product analytics.`;
-      skills.concepts = "Agile, Scrum, Product Roadmaps, Market Research, PRD writing";
-      experience = [
-        {
-          company: "DevStudio Solutions",
-          place: "Mumbai, India",
-          position: "Technical Product Manager",
-          duration: "2022 - Present",
-          bullets: [
-            "Owned the lifecycle of the core payment gateway checkout page, leading to [18% improvement] in completed transactions.",
-            "Managed product backlog and moderated daily sprints in [Jira] for [12+ software engineers].",
-            "Authored detailed PRDs matching business requirements to technical architecture."
-          ]
-        },
-        {
-          company: "FinTechCorp",
-          place: "Bangalore, India",
-          position: "Product Analyst",
-          duration: "2020 - 2022",
-          bullets: [
-            "Conducted user research metrics mapping, shaping design layouts of user dashboard widgets."
-          ]
-        }
-      ];
-      projects = [
-        {
-          name: "CheckoutPlus - Cart Optimization Plan",
-          duration: "5 months",
-          tech: "Jira • Figma • SQL • Mixpanel",
-          bullets: [
-            "Spearheaded user onboarding redesign, reducing checkout friction drop-offs by [25%]."
-          ]
-        }
-      ];
-    } else if (lowerPill.includes("security") || lowerPill.includes("analyst")) {
-      summary = `Certified [Cyber Security Analyst] with [4+ years] of expertise in [Vulnerability Assessment & Penetration Testing (VAPT)]. Proficient in SIEM, auditing firewalls, and network scanning tools.`;
-      skills.concepts = "VAPT, Penetration Testing, OWASP Top 10, Network Security, IAM";
-      skills.tools = "Wireshark, Nmap, Metasploit, Splunk, Kali Linux";
-      experience = [
-        {
-          company: "SecureNet Systems",
-          place: "Kochi, India",
-          position: "Information Security Analyst",
-          duration: "2022 - Present",
-          bullets: [
-            "Conducted comprehensive network penetration tests using [Nmap] and [Metasploit], patching [35+] vulnerability points.",
-            "Established corporate incident response guidelines, reducing security response times by [40%].",
-            "Configured secure VPN and firewall rule structures."
-          ]
-        },
-        {
-          company: "NetOps Firewall Corp",
-          place: "Bangalore, India",
-          position: "Security Administrator",
-          duration: "2020 - 2022",
-          bullets: [
-            "Monitored incoming network packet logs via Wireshark to isolate suspicious traffic origins."
-          ]
-        }
-      ];
-      projects = [
-        {
-          name: "ThreatBlock - Firewall Rule Auditor",
-          duration: "2 months",
-          tech: "Python • Nmap • Splunk",
-          bullets: [
-            "Developed automated scripts to scan and audit open ports across 50+ database servers."
-          ]
-        }
-      ];
-    } else {
-      summary = `Dedicated [Software Engineer] with [3+ years] of experience building robust web applications. Skilled in [Python], [Django], [PostgreSQL], and REST API design. Experienced in Agile team environments.`;
-      skills.backend = "Python, Django, FastAPI, Django REST Framework, REST APIs";
-      skills.database = "PostgreSQL, MySQL, Redis, Django ORM";
-      experience = [
-        {
-          company: "DevScale Software Labs",
-          place: "Kozhikode, Kerala",
-          position: `Senior ${cleanPosition}`,
-          duration: "2023 - Present",
-          bullets: [
-            `Engineered the core database backend APIs for web applications using [Python] and [Django], scaling requests limit by [40%].`,
-            "Designed 25+ secure endpoints with JWT authentication and Role-Based Access Control (RBAC).",
-            "Optimized slow PostgreSQL queries, reducing database lookups response latency by [35%]."
-          ]
-        },
-        {
-          company: "CodeStudio Solutions",
-          place: "Trivandrum, India",
-          position: `Junior Backend developer`,
-          duration: "2021 - 2023",
-          bullets: [
-            "Integrated third-party payment gateways and drafted API documentations using Swagger."
-          ]
-        }
-      ];
-      projects = [
-        {
-          name: "RentFlow - Tenant Property Tracker",
-          duration: "2 months",
-          tech: "React • FastAPI • PostgreSQL • Supabase",
-          bullets: [
-            "Independently constructed property ledger dashboards, reducing bookkeeping error rates by [30%]."
-          ]
-        }
-      ];
-    }
-
-    const structured = {
-      name: cleanName,
-      position: cleanPosition,
-      phone: cleanPhone,
-      email: cleanEmail,
-      location: cleanLocation,
-      linkedin: cleanLinkedin,
-      github: cleanGithub,
-      portfolio: "name.vercel.app",
-      summary: summary,
-      skills: skills,
-      experience: experience,
-      projects: projects,
-      education: "Bachelor of Technology in Computer Science (Graduated 2023) • State Technical University",
-      certifications: [
-        `${cleanPosition} Professional Certification (2023)`,
-        "Agile & Scrum Practitioner (2022)"
-      ],
-      achievements: [
-        "Best Project Award – Built a scalable app prototype in under 3 hours at college hackathon.",
-        "Team Lead: Led a 4-member team delivering production-ready applications on schedule."
-      ]
-    };
-
-    const cvTextPlain = `
-${cleanName}
-${cleanPosition}
-${cleanPhone} • ${cleanEmail} • ${cleanLocation}
-
-## PROFESSIONAL SUMMARY
-${summary.replace(/\[|\]/g, "")}
-
-## TECHNICAL SKILLS
-Frontend: ${skills.frontend}
-Backend: ${skills.backend}
-Database: ${skills.database}
-Tools: ${skills.tools}
-
-## WORK EXPERIENCE
-${experience.map(exp => `${exp.position} at ${exp.company} (${exp.duration})\n${exp.bullets.join("\n")}`).join("\n\n")}
-
-## PROJECTS
-${projects.map(p => `${p.name} (${p.duration})\n${p.bullets.join("\n")}`).join("\n\n")}
-    `.trim();
-
-    setCvText(cvTextPlain);
-    // Don't set parsedCV - pill click shows ONLY the AI-generated optimized CV (no left original card)
+    setError("");
     setParsedCV(null);
-    setCvDraftData(structured);
+    setUploadedFileName("");
+    setCvText("");
+    setCvDraftData(emptyCv(pill));
     setHasUploadedCV(true);
     setIsAnalyzed(true);
+    setCustomOptimizationResult({ builder: true });
     setCompletedSections(['header']);
     setHighlightedSection('header');
+    setSectionEditFlow(null);
+    setHeaderQuestionIdx(null);
+    guidedRef.current = true;
 
-    
-    // Filter matching job objects from `jobs` to feed customRecommendations
-    const recommendedJobs = jobs.filter(job => {
-      const pillLower = pill.toLowerCase();
-      const titleLower = job.title.toLowerCase();
-      if (pillLower.includes("frontend") || pillLower.includes("ux") || pillLower.includes("ui")) {
-        return titleLower.includes("frontend") || titleLower.includes("react") || titleLower.includes("ui") || titleLower.includes("ux");
-      } else if (pillLower.includes("backend") || pillLower.includes("python") || pillLower.includes("node")) {
-        return titleLower.includes("backend") || titleLower.includes("python") || titleLower.includes("node") || titleLower.includes("django");
-      } else if (pillLower.includes("devops") || pillLower.includes("cloud") || pillLower.includes("architect")) {
-        return titleLower.includes("devops") || titleLower.includes("kubernetes") || titleLower.includes("aws") || titleLower.includes("cloud");
-      } else if (pillLower.includes("data") || pillLower.includes("machine") || pillLower.includes("science")) {
-        return titleLower.includes("data") || titleLower.includes("machine") || titleLower.includes("science") || titleLower.includes("analyst");
-      } else {
-        const keyword = pillLower.replace(" developer", "").replace(" engineer", "");
-        return titleLower.includes(keyword);
-      }
-    });
-    setCustomRecommendations(recommendedJobs);
+    // Matching jobs for the recommendations rail
+    const keyword = pill.toLowerCase().replace(" developer", "").replace(" engineer", "").trim();
+    setCustomRecommendations(jobs.filter(j => j.title.toLowerCase().includes(keyword)).slice(0, 6));
 
-    const mockOptResult = {
-      original_score: 72,
-      optimized_score: 96,
-      optimized_text: `
-# ${cleanName} CANDIDATE
-## PROFESSIONAL SUMMARY
-${summary}
+    setChatMessages([{
+      id: Date.now(), sender: 'ai',
+      text: `Let's build your **${pill}** CV step by step — everything is pick-and-choose, no long typing needed.\n\n**Step 1 of 8 — Header.** Fill in your details below and press Save:`,
+      headerForm: true,
+    }]);
 
-## TECHNICAL SKILLS
-${Object.values(skills).join(" • ")}
-
-## WORK EXPERIENCE
-${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration}) - ${exp.bullets.map(b => b).join(". ")}`).join("\n")}
-      `.trim(),
-      recommendations: [
-        "Quantify bullet points with metrics (e.g. % performance increase).",
-        "Highlight your cloud architecture and containerization skills explicitly.",
-        "List major tools and systems used in the projects section."
-      ]
-    };
-    setCustomOptimizationResult(mockOptResult);
-
-    // Auto-scroll to CV workspace and sequentially prompt user to fill in their real details
     setTimeout(() => {
-      const workspaceEl = document.getElementById("cv-workspace");
-      if (workspaceEl) workspaceEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("cv-workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
-
-    setChatMessages(prev => [
-      ...prev,
-      { id: Date.now(), sender: "user", text: `Selected suggestion: ${pill}` },
-      { id: Date.now() + 1, sender: "ai", text: `**What is your full name?**` }
-    ]);
-    setHeaderQuestionIdx(0);
-    setHighlightedSection('header');
   };
 
   // Handle file selection inside upload modal
@@ -1924,7 +1762,7 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
   const handleSendChatMessage = async (e, directText = null) => {
     if (e) e.preventDefault();
     const userText = directText || chatInput;
-    if (!userText.trim()) return;
+    if (!userText.trim() || isOptimizing) return;
 
     if (!directText) {
       setChatInput("");
@@ -1947,20 +1785,53 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
       return;
     }
 
-    // Header details are collected manually, question by question (no AI content)
-    if (headerQuestionIdx !== null) {
-      handleHeaderAnswer(userText);
+    const lowText = userText.toLowerCase();
+
+    // ── Understand CV-editing requests typed in chat ─────────────────────
+    // "edit my professional summary", "change skills", "update education",
+    // "add a project", or just "summary" → open that section's editor.
+    const SECTION_KEYWORDS = [
+      ['professional summary', 'summary'], ['summary', 'summary'], ['about me', 'summary'],
+      ['technical skill', 'skills'], ['skill', 'skills'],
+      ['work experience', 'experience'], ['experience', 'experience'], ['job history', 'experience'],
+      ['project', 'projects'],
+      ['education', 'education'], ['qualification', 'education'], ['degree', 'education'],
+      ['certification', 'certifications'], ['training', 'certifications'], ['course', 'certifications'],
+      ['achievement', 'achievements'], ['award', 'achievements'], ['accomplishment', 'achievements'],
+      ['header', 'header'], ['contact detail', 'header'], ['personal detail', 'header'],
+    ];
+    const detectSectionIntent = (t) => {
+      const hit = SECTION_KEYWORDS.find(([k]) => t.includes(k));
+      if (!hit) return null;
+      const hasEditVerb = /(edit|change|update|improve|rewrite|modify|redo|fix|add|open|correct)/.test(t);
+      const isShortMention = t.trim().split(/\s+/).length <= 3; // e.g. "summary", "my skills"
+      return (hasEditVerb || isShortMention) ? hit[1] : null;
+    };
+    // Don't hijack career questions like "skills for data scientist" or "interview questions"
+    const looksLikeCareerQuestion = /\b(for|salary|interview|roadmap|become|career path|jobs?)\b/.test(lowText) || /\?\s*$/.test(lowText);
+    const intentSection = !looksLikeCareerQuestion ? detectSectionIntent(lowText) : null;
+    if (intentSection) {
+      openSectionEditor(intentSection);
       return;
     }
 
-    setIsOptimizing(true);
-    setError("");
+    // Download / view requests typed in chat
+    if (/\b(download|export|save)\b.*\b(cv|resume|pdf)\b|\bdownload\b\s*$/.test(lowText)) {
+      pushAiMessage({ text: '⬇️ **Downloading your CV as a PDF now.** Check your browser downloads.' });
+      handleDownloadPdf();
+      return;
+    }
+    if (/\b(view|show|see)\b.*\b(my )?(cv|resume)\b/.test(lowText)) {
+      document.getElementById('cv-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      pushAiMessage({ text: '👁️ Here it is — your CV is on the left. Click any section to edit it.' });
+      return;
+    }
 
-    // Route career questions to the backend AI assistant (unless it's a CV-builder command
-    // like "Name, Role" or an active guided-edit step)
+    // Route career questions to the backend AI assistant FIRST — even during the
+    // guided header flow, "show me remote jobs" deserves a real answer instead of
+    // being stored as a name. Plain answers (names, emails, ...) never match.
     const isAssistantQuery = (q) => {
-      if (q.includes(",")) return false;
-      if (headerQuestionIdx !== null) return false;
+      if (q.includes(",")) return false; // "Name, Role" CV shortcut
       const t = q.trim();
       return /\?\s*$/.test(t) ||
         /^(hi+|hello|hey+|yo|namaste|good (morning|afternoon|evening)|thanks|thank you|help)\b/i.test(t) ||
@@ -1968,6 +1839,8 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
     };
 
     if (isAssistantQuery(userText)) {
+      setIsOptimizing(true);
+      setError("");
       try {
         const res = await fetch(`${API_BASE}/api/chat/`, {
           method: "POST",
@@ -1977,13 +1850,30 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
         const data = await res.json();
         if (res.ok && data.reply) {
           setIsOptimizing(false);
-          setChatMessages(prev => [...prev, { id: Date.now() + 2, sender: "ai", text: data.reply }]);
+          // If a guided CV question was pending, gently resume it after answering
+          const pendingQuestion = headerQuestionIdx !== null
+            ? `\n\n↩️ **Back to your CV — ${getHeaderQuestionText(headerQuestionIdx)}**`
+            : "";
+          setChatMessages(prev => [...prev, {
+            id: Date.now() + 2, sender: "ai", text: data.reply + pendingQuestion,
+            suggestions: data.suggestions, jobs: data.jobs,
+          }]);
           return;
         }
       } catch (err) {
         console.error("AI assistant unavailable, falling back to local logic:", err);
       }
+      setIsOptimizing(false);
     }
+
+    // Header details are collected manually, question by question (no AI content)
+    if (headerQuestionIdx !== null) {
+      handleHeaderAnswer(userText);
+      return;
+    }
+
+    setIsOptimizing(true);
+    setError("");
 
     // Simulate AI response delay
     setTimeout(() => {
@@ -2268,195 +2158,45 @@ ${experience.map(exp => `* [${exp.position}] at [${exp.company}] (${exp.duration
     document.body.removeChild(element);
   };
 
-  // Real vector-text PDF using jsPDF text API
+  // Pixel-exact PDF: captures the on-screen CV with html2canvas so the PDF
+  // matches the left-side preview's exact layout, spacing, and typography.
   const handleDownloadPdf = async () => {
+    const node = optimizedCardRef.current;
+    if (!node) return;
     try {
-      const { jsPDF } = await import('jspdf');
+      const [{ jsPDF }, html2canvas] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas').then(m => m.default || m),
+      ]);
+      node.classList.add('printing-pdf');
+      const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      node.classList.remove('printing-pdf');
+
       const doc = new jsPDF('p', 'pt', 'a4');
-      const W = doc.internal.pageSize.getWidth();   // 595.28
-      const H = doc.internal.pageSize.getHeight();  // 841.89
-      const ML = 45, MR = 45, MT = 48;
-      const TW = W - ML - MR; // text width
-      let y = MT;
+      const W = doc.internal.pageSize.getWidth();
+      const H = doc.internal.pageSize.getHeight();
+      const margin = 30;
+      const imgW = W - margin * 2;
+      const pageContentH = H - margin * 2;
+      const pxPerPt = canvas.width / imgW;
+      const pagePx = Math.floor(pageContentH * pxPerPt);
 
-      const cv = cvDraftData;
-      const name = (cv.name || 'Candidate').toUpperCase();
-      // Position line mirrors the editor header: "Position • Skill • Skill …"
-      const pdfSkillsSource = cv.skills && typeof cv.skills === 'object' && !Array.isArray(cv.skills)
-        ? (cv.skills.frontend || Object.values(cv.skills).filter(v => v && v !== '—')[0] || '')
-        : (Array.isArray(cv.skills) ? cv.skills.join(', ') : (cv.skills || ''));
-      const pdfHeaderSkills = pdfSkillsSource.split(',').map(s => s.trim()).filter(Boolean).slice(0, 6).join(' • ');
-      const position = (cv.position || 'Software Developer') + (pdfHeaderSkills ? `  •  ${pdfHeaderSkills}` : '');
-
-      // Helpers
-      const checkPage = (needed = 14) => {
-        if (y + needed > H - 36) { doc.addPage(); y = MT; }
-      };
-
-      const sectionHeader = (title) => {
-        checkPage(22);
-        y += 8;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.setTextColor(15, 23, 42);
-        doc.text(title.toUpperCase(), ML, y);
-        y += 3;
-        doc.setDrawColor(15, 23, 42);
-        doc.setLineWidth(0.8);
-        doc.line(ML, y, W - MR, y);
-        y += 9;
-        doc.setTextColor(30, 41, 59);
-      };
-
-      const bodyText = (text, opts = {}) => {
-        if (!text) return;
-        doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
-        doc.setFontSize(opts.size || 8.5);
-        doc.setTextColor(...(opts.color || [30, 41, 59]));
-        const lines = doc.splitTextToSize(text, opts.width || TW);
-        lines.forEach(line => { checkPage(12); doc.text(line, opts.x || ML, y); y += 11; });
-      };
-
-      const bullet = (text) => {
-        if (!text) return;
-        const cleanText = text.replace(/\[|\]/g, '');
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.2);
-        doc.setTextColor(51, 65, 85);
-        doc.text('•', ML, y);
-        const lines = doc.splitTextToSize(cleanText, TW - 10);
-        lines.forEach((line, i) => { checkPage(11); doc.text(line, ML + 9, y); y += 10.5; });
-      };
-
-      // ── NAME & CONTACT ──
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(17);
-      doc.setTextColor(15, 23, 42);
-      doc.text(name, W / 2, y, { align: 'center' });
-      y += 15;
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.6);
-      doc.setTextColor(30, 41, 59);
-      doc.splitTextToSize(position, TW).forEach((ln) => {
-        doc.text(ln, W / 2, y, { align: 'center' });
-        y += 10.5;
-      });
-      y += 0.5;
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(71, 85, 105);
-
-      const contact = [cv.phone, cv.email, cv.location].filter(Boolean).join('  |  ');
-      const contact2 = [cv.portfolio, cv.linkedin, cv.github].filter(Boolean).join('  |  ');
-      if (contact) { doc.text(contact, W / 2, y, { align: 'center' }); y += 10; }
-      if (contact2) { doc.text(contact2, W / 2, y, { align: 'center' }); y += 10; }
-
-      doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.5);
-      doc.line(ML, y + 2, W - MR, y + 2);
-      y += 12;
-
-      // ── PROFESSIONAL SUMMARY ──
-      if (cv.summary) {
-        sectionHeader('Professional Summary');
-        bodyText(cv.summary.replace(/\[|\]/g, ''));
+      let rendered = 0;
+      while (rendered < canvas.height) {
+        const sliceH = Math.min(pagePx, canvas.height - rendered);
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width;
+        slice.height = sliceH;
+        slice.getContext('2d').drawImage(canvas, 0, rendered, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+        if (rendered > 0) doc.addPage();
+        doc.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, imgW, sliceH / pxPerPt);
+        rendered += sliceH;
       }
 
-      // ── TECHNICAL SKILLS ──
-      const skills = cv.skills || {};
-      // Skills table — mirrors the on-screen editor's table exactly (same
-      // categorization, same labels, bordered two-column layout)
-      const skillsNorm = categorizeSkills(skills);
-      const labelMap = { frontend: 'Frontend', backend: 'Backend', database: 'Database', tools: 'Tools', concepts: 'Concepts', ai: 'AI Integrations' };
-      const skillRows = Object.entries(labelMap)
-        .filter(([key]) => skillsNorm[key] && skillsNorm[key].trim() && skillsNorm[key].trim() !== '—')
-        .map(([key, label]) => [label, skillsNorm[key].replace(/\[|\]/g, '')]);
-      if (skillRows.length > 0) {
-        sectionHeader('Technical Skills');
-        const col1 = 92;          // label column width
-        const cellPad = 4;
-        skillRows.forEach(([label, val]) => {
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-          const lines = doc.splitTextToSize(val, TW - col1 - cellPad * 2);
-          const rowH = lines.length * 9.5 + cellPad * 2;
-          checkPage(rowH + 4);
-          const top = y - 7;
-          doc.setDrawColor(203, 213, 225);
-          doc.setLineWidth(0.5);
-          doc.setFillColor(248, 250, 252);
-          doc.rect(ML, top, col1, rowH, 'FD');
-          doc.rect(ML + col1, top, TW - col1, rowH);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(15, 23, 42);
-          doc.text(label, ML + cellPad, top + cellPad + 6);
-          doc.setFont('helvetica', 'normal'); doc.setTextColor(51, 65, 85);
-          lines.forEach((ln, i) => doc.text(ln, ML + col1 + cellPad, top + cellPad + 6 + i * 9.5));
-          y = top + rowH + 8;
-        });
-        y += 3;
-      }
-
-      // ── WORK EXPERIENCE ──
-      const experience = Array.isArray(cv.experience) ? cv.experience : [];
-      if (experience.length > 0) {
-        sectionHeader('Work Experience');
-        experience.forEach(exp => {
-          checkPage(20);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(15, 23, 42);
-          doc.text(exp.position || '', ML, y);
-          if (exp.duration) { doc.setFont('helvetica', 'normal'); doc.text(exp.duration, W - MR, y, { align: 'right' }); }
-          y += 11;
-          doc.setFont('helvetica', 'italic'); doc.setFontSize(8.2); doc.setTextColor(71, 85, 105);
-          doc.text(`${exp.company || ''}${exp.place ? ` — ${exp.place}` : ''}`, ML, y);
-          y += 10;
-          if (Array.isArray(exp.bullets)) exp.bullets.forEach(b => bullet(b));
-          y += 3;
-        });
-      }
-
-      // ── PROJECTS ──
-      const projects = Array.isArray(cv.projects) ? cv.projects : [];
-      if (projects.length > 0) {
-        sectionHeader('Projects');
-        projects.forEach(proj => {
-          checkPage(20);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(15, 23, 42);
-          doc.text(proj.name || '', ML, y);
-          if (proj.duration) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8.2); doc.text(proj.duration, W - MR, y, { align: 'right' }); }
-          y += 11;
-          if (proj.tech) {
-            doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(71, 85, 105);
-            bodyText(proj.tech, { size: 8, color: [71, 85, 105] }); y -= 2;
-          }
-          if (Array.isArray(proj.bullets)) proj.bullets.forEach(b => bullet(b));
-          y += 3;
-        });
-      }
-
-      // ── EDUCATION ──
-      const edu = cv.education;
-      if (edu) {
-        sectionHeader('Education');
-        if (typeof edu === 'string') bodyText(edu.replace(/\[|\]/g, ''));
-        else if (Array.isArray(edu)) edu.forEach(e => bodyText(e.replace(/\[|\]/g, '')));
-      }
-
-      // ── CERTIFICATIONS ──
-      const certs = Array.isArray(cv.certifications) ? cv.certifications : [];
-      if (certs.length > 0) {
-        sectionHeader('Certifications & Training');
-        certs.forEach(c => bullet(c));
-      }
-
-      // ── ACHIEVEMENTS ──
-      const ach = Array.isArray(cv.achievements) ? cv.achievements : [];
-      if (ach.length > 0) {
-        sectionHeader('Achievements');
-        ach.forEach(a => bullet(a));
-      }
-
-      const candidateName = cv.name || parsedCV?.name || 'Optimized';
+      const candidateName = cvDraftData.name || parsedCV?.name || 'My';
       doc.save(`${candidateName}_CV.pdf`);
     } catch (err) {
+      if (node) node.classList.remove('printing-pdf');
       console.error('PDF generation failed:', err);
       alert('PDF generation failed. Please try again.');
     }
@@ -2613,9 +2353,169 @@ ${candidateName}`;
 
   // Renders AI option buttons + suggestion cards attached to a chat message
   const renderMessageExtras = (msg) => {
-    if (!msg.cards && !msg.options) return null;
+    if (!msg.cards && !msg.options && !(msg.suggestions?.length) && !(msg.jobs?.length)
+      && !msg.headerForm && !msg.skillsPicker && !msg.experienceForm) return null;
+
+    const formInputStyle = {
+      width: '100%', padding: '0.42rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '8px',
+      fontSize: '0.74rem', color: '#1e293b', outline: 'none', fontFamily: 'inherit', background: '#ffffff',
+    };
+    const formLabelStyle = { fontSize: '0.63rem', fontWeight: 800, color: 'var(--text-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.15rem', display: 'block' };
+    const formCardStyle = { border: '1.5px solid #bfdbfe', borderRadius: '12px', background: '#ffffff', padding: '0.75rem 0.85rem', boxShadow: '0 1px 4px rgba(37,99,235,0.06)' };
+    const saveBtnStyle = { padding: '0.45rem 1.1rem', borderRadius: '50px', border: 'none', background: 'var(--accent-blue)', color: '#fff', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 6px rgba(37,99,235,0.2)' };
+
+    let expSuggestedBullets = [];
+    if (msg.experienceForm) {
+      const role = getRoleType(cvDraftData?.position || '');
+      const bank = EXPERIENCE_BANK[role] || EXPERIENCE_BANK.fullstack || Object.values(EXPERIENCE_BANK)[0] || [];
+      expSuggestedBullets = bank.flat().flatMap(e => (e.bullets || [])).slice(0, 5);
+    }
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', maxWidth: '92%', marginTop: '0.1rem' }}>
+        {msg.headerForm && (
+          <form onSubmit={saveHeaderForm} style={formCardStyle}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.6rem' }}>
+              <div><label style={formLabelStyle}>Full Name *</label>
+                <input name="name" required placeholder="e.g. Arjun Nair" defaultValue={cvDraftData?.name || ''} style={formInputStyle} /></div>
+              <div><label style={formLabelStyle}>Job Position</label>
+                <input name="position" list="role-suggestions" placeholder="e.g. Full Stack Developer" defaultValue={cvDraftData?.position || ''} style={formInputStyle} />
+                <datalist id="role-suggestions">{categories.map(c => <option key={c} value={c} />)}</datalist></div>
+              <div><label style={formLabelStyle}>Phone</label>
+                <input name="phone" placeholder="+91 98765 43210" defaultValue={cvDraftData?.phone || ''} style={formInputStyle} /></div>
+              <div><label style={formLabelStyle}>Email</label>
+                <input name="email" type="email" placeholder="you@gmail.com" defaultValue={cvDraftData?.email || ''} style={formInputStyle} /></div>
+              <div><label style={formLabelStyle}>Location</label>
+                <input name="location" list="city-suggestions" placeholder="City, State, India" defaultValue={cvDraftData?.location || ''} style={formInputStyle} />
+                <datalist id="city-suggestions">
+                  {['Bangalore, Karnataka, India', 'Kochi, Kerala, India', 'Chennai, Tamil Nadu, India', 'Hyderabad, Telangana, India', 'Mumbai, Maharashtra, India', 'Pune, Maharashtra, India', 'Delhi NCR, India', 'Trivandrum, Kerala, India'].map(c => <option key={c} value={c} />)}
+                </datalist></div>
+              <div><label style={formLabelStyle}>Portfolio</label>
+                <input name="portfolio" placeholder="yourname.vercel.app" defaultValue={cvDraftData?.portfolio || ''} style={formInputStyle} /></div>
+              <div><label style={formLabelStyle}>LinkedIn</label>
+                <input name="linkedin" placeholder="linkedin.com/in/yourname" defaultValue={cvDraftData?.linkedin || ''} style={formInputStyle} /></div>
+              <div><label style={formLabelStyle}>GitHub</label>
+                <input name="github" placeholder="github.com/yourname" defaultValue={cvDraftData?.github || ''} style={formInputStyle} /></div>
+            </div>
+            <div style={{ marginBottom: '0.6rem' }}>
+              <label style={formLabelStyle}>
+                Headline skills — shown next to your job title (choose up to {HEADER_SKILL_LIMIT}) · {(cvDraftData?.headerSkills || []).length}/{HEADER_SKILL_LIMIT} selected
+              </label>
+              <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                {headerSkillPool().map((skill) => {
+                  const on = (cvDraftData?.headerSkills || []).some(s => s.toLowerCase() === skill.toLowerCase());
+                  const full = !on && (cvDraftData?.headerSkills || []).length >= HEADER_SKILL_LIMIT;
+                  return (
+                    <button key={skill} type="button" onClick={() => toggleHeaderSkill(skill)}
+                      style={{
+                        padding: '0.22rem 0.55rem', borderRadius: '50px', fontSize: '0.66rem', fontWeight: 650,
+                        cursor: full ? 'not-allowed' : 'pointer', opacity: full ? 0.45 : 1,
+                        border: on ? '1.25px solid #2563eb' : '1.25px solid #e2e8f0',
+                        background: on ? '#eff6ff' : '#f8fafc', color: on ? '#2563eb' : '#475569', transition: 'all 0.15s',
+                      }}>
+                      {on ? '✓ ' : '+ '}{skill}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <button type="submit" style={saveBtnStyle}>Save Header → Next</button>
+          </form>
+        )}
+        {msg.skillsPicker && (
+          <div style={formCardStyle}>
+            {roleSkillCategories().map((cat) => {
+              const current = (cvDraftData?.skills?.[cat] || '').split(',').map(s => s.trim()).filter(s => s && s !== '—');
+              const pool = [...new Set([...current, ...SKILL_SUGGESTION_POOL[cat]])];
+              return (
+                <div key={cat} style={{ marginBottom: '0.55rem' }}>
+                  <span style={formLabelStyle}>{cat === 'ai' ? 'AI Integrations' : cat}</span>
+                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                    {pool.map((skill) => {
+                      const on = cvSkillHas(cat, skill);
+                      return (
+                        <button key={skill} type="button" onClick={() => toggleCvSkill(cat, skill)}
+                          style={{
+                            padding: '0.22rem 0.55rem', borderRadius: '50px', fontSize: '0.66rem', fontWeight: 650, cursor: 'pointer',
+                            border: on ? '1.25px solid #2563eb' : '1.25px solid #e2e8f0',
+                            background: on ? '#eff6ff' : '#f8fafc', color: on ? '#2563eb' : '#475569', transition: 'all 0.15s',
+                          }}>
+                          {on ? '✓ ' : '+ '}{skill}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {msg.experienceForm && (
+          <form onSubmit={saveExperienceForm} style={formCardStyle}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.55rem' }}>
+              <div><label style={formLabelStyle}>Position</label>
+                <input name="position" placeholder="e.g. Software Developer" defaultValue={cvDraftData?.position || ''} style={formInputStyle} /></div>
+              <div><label style={formLabelStyle}>Company</label>
+                <input name="company" required placeholder="e.g. TechNova Solutions" style={formInputStyle} /></div>
+              <div style={{ gridColumn: '1 / -1' }}><label style={formLabelStyle}>Location</label>
+                <input name="place" placeholder="e.g. Kochi, Kerala" style={formInputStyle} /></div>
+              <div><label style={formLabelStyle}>From</label>
+                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                  <select name="fromMonth" defaultValue="Jan" style={{ ...formInputStyle, padding: '0.4rem 0.3rem' }}>{MONTHS.map(m => <option key={m}>{m}</option>)}</select>
+                  <select name="fromYear" defaultValue="2024" style={{ ...formInputStyle, padding: '0.4rem 0.3rem' }}>{YEARS.map(y => <option key={y}>{y}</option>)}</select>
+                </div></div>
+              <div><label style={formLabelStyle}>To</label>
+                <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                  <select name="toMonth" defaultValue="Dec" style={{ ...formInputStyle, padding: '0.4rem 0.3rem' }}>{MONTHS.map(m => <option key={m}>{m}</option>)}</select>
+                  <select name="toYear" defaultValue="2026" style={{ ...formInputStyle, padding: '0.4rem 0.3rem' }}>{YEARS.map(y => <option key={y}>{y}</option>)}</select>
+                  <label style={{ fontSize: '0.66rem', fontWeight: 700, color: '#475569', display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" name="present" /> Present
+                  </label>
+                </div></div>
+            </div>
+            {expSuggestedBullets.length > 0 && (
+              <div style={{ marginBottom: '0.55rem' }}>
+                <span style={formLabelStyle}>Suggested bullet points — tick the ones that fit</span>
+                {expSuggestedBullets.map((b, i) => (
+                  <label key={i} style={{ display: 'flex', gap: '0.35rem', alignItems: 'flex-start', fontSize: '0.68rem', color: '#475569', marginBottom: '0.25rem', cursor: 'pointer' }}>
+                    <input type="checkbox" name="bullets" value={b} defaultChecked={i < 2} style={{ marginTop: '0.15rem' }} />
+                    <span>{b}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div style={{ marginBottom: '0.55rem' }}>
+              <label style={formLabelStyle}>Your own points (optional, one per line)</label>
+              <textarea name="ownBullets" rows={2} placeholder="e.g. Built the payments module used by 10k users" style={{ ...formInputStyle, resize: 'vertical' }} />
+            </div>
+            <button type="submit" style={saveBtnStyle}>Save Experience → Next</button>
+          </form>
+        )}
+        {msg.jobs && msg.jobs.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            {msg.jobs.map((job) => (
+              <div key={job.id} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', background: '#ffffff', padding: '0.55rem 0.75rem', boxShadow: '0 1px 4px rgba(15,23,42,0.04)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ fontWeight: 750, fontSize: '0.74rem', color: 'var(--text-dark)' }}>{job.title}</span>
+                  <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '0.62rem', fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '50px', padding: '0.12rem 0.5rem', whiteSpace: 'nowrap' }}>{job.salary_range}</span>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-gray)', marginTop: '0.2rem' }}>
+                  {job.company} &middot; {job.location}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {msg.suggestions && msg.suggestions.length > 0 && (
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            {msg.suggestions.map((s, i) => (
+              <button key={i} type="button" onClick={() => handleSendChatMessage(null, s)}
+                style={{ padding: '0.35rem 0.8rem', borderRadius: '50px', border: '1px solid #bfdbfe', background: '#ffffff', color: 'var(--accent-blue)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}>
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
         {msg.cards && msg.cards.map((card, i) => (
           <div key={i} onClick={() => handleChatOption({ action: 'apply', section: card.section, payload: card.payload })}
             style={{ border: '1.5px solid #bfdbfe', borderRadius: '12px', background: '#ffffff', padding: '0.6rem 0.75rem', cursor: 'pointer', boxShadow: '0 1px 4px rgba(37,99,235,0.06)' }}>
@@ -2648,18 +2548,31 @@ ${candidateName}`;
     const position = cv.position || "Software Developer";
     
     // Header skill strip always derives from the CV's actual skills (matches PDF)
+    // Header strip: skills the user hand-picked in the header form win;
+    // otherwise fall back to the category that defines this role
+    const primaryCat = ROLE_PRIMARY_SKILL_CAT[getRoleType(cv.position || "")] || "frontend";
     const headerSkillsSource = cv.skills && typeof cv.skills === "object" && !Array.isArray(cv.skills)
-      ? (cv.skills.frontend || Object.values(cv.skills).filter(v => v && v !== "—")[0] || "")
+      ? (cv.skills[primaryCat] || Object.values(cv.skills).filter(v => v && v !== "—")[0] || "")
       : (Array.isArray(cv.skills) ? cv.skills.join(", ") : (cv.skills || ""));
-    const headerSkills = headerSkillsSource.split(",").map(s => s.trim()).filter(Boolean).slice(0, 6).join(" • ")
-      || "React.js • TypeScript • Python";
+    const headerSkills = (Array.isArray(cv.headerSkills) && cv.headerSkills.length > 0)
+      ? cv.headerSkills.join(" • ")
+      : headerSkillsSource.split(",").map(s => s.trim()).filter(s => s && s !== "—").slice(0, 6).join(" • ");
 
-    const phone = cv.phone || "+91 00000 00000";
-    const email = cv.email || "name@gmail.com";
-    const location = cv.location || "City, State, India";
-    const portfolio = cv.portfolio || "name.vercel.app";
-    const linkedin = cv.linkedin || "linkedin.com/in/name";
-    const github = cv.github || "github.com/name";
+    const phone = cv.phone || "";
+    const email = cv.email || "";
+    const location = cv.location || "";
+    const portfolio = cv.portfolio || "";
+    const linkedin = cv.linkedin || "";
+    const github = cv.github || "";
+    const contactRow1 = [phone, email, location].filter(Boolean);
+    const contactRow2 = [portfolio, linkedin, github].filter(Boolean);
+
+    // Subtle placeholder shown for sections the chat hasn't filled yet
+    const emptyNote = (label) => (
+      <p style={{ fontStyle: "italic", color: "#94a3b8", fontSize: "0.74rem", margin: "0.15rem 0 0.5rem 0" }}>
+        {label} not added yet — build it from the chat panel →
+      </p>
+    );
 
     let summary = cv.summary || "";
     if (isOptimized && summaryAltIndex > 0) {
@@ -2689,84 +2602,11 @@ ${candidateName}`;
       const exp2 = ALTERNATIVE_EXPERIENCES[(expAltIndex * 2 + 1) % ALTERNATIVE_EXPERIENCES.length];
       experienceList = [exp1, exp2];
     }
-    if (experienceList.length === 0) {
-      experienceList = [
-        {
-          company: "TechNova Solutions",
-          place: "City, State",
-          position: "Software Developer",
-          duration: "Jan 2023 – Present",
-          bullets: [
-            "Developed and shipped full-stack web applications using React.js, Node.js, and PostgreSQL.",
-            "Implemented 20+ REST API endpoints with JWT authentication and Role-Based Access Control (RBAC).",
-            "Collaborated in Agile/Scrum sprints using Git and GitHub for version control and code reviews.",
-            "Optimized relational database schemas, reducing query latency by 35%.",
-            "Configured production deployments on cloud platforms, improving server response times by 30%.",
-            "Configured production servers on Render and Vercel, reducing response latencies by 35%."
-          ]
-        }
-      ];
-    }
 
     let projectsList = cv.projects || [];
-    if (typeof projectsList === "string" || projectsList.length === 0) {
-      projectsList = [
-        {
-          name: "RentFlow – Tenant Rent Management System (Personal Project – Live)",
-          duration: "Jan – Feb 2026",
-          tech: "React 18 • Vite • FastAPI • Pydantic • PostgreSQL • Supabase • Tailwind CSS • Recharts • JWT • Vercel • Render",
-          bullets: [
-            "Independently designed, built & deployed – frontend on Vercel, FastAPI backend on Render, PostgreSQL on Supabase.",
-            "Architected 20+ async REST API endpoints with Pydantic validation, JWT-based RBAC, and Supabase SQL.",
-            "Designed real-time Recharts dashboards tracking property revenue, collection rates, and tenant occupancy status.",
-            "Integrated Supabase Storage for tenant lease documents and automated PDF invoice generation.",
-            "Configured custom service workers to enable PWA support and offline access modes.",
-            "Reduced query latencies by 35% through query profiling and selective schema indexing."
-          ]
-        },
-        {
-          name: "CRM – Customer Relationship Management System (Team Lead – 5 Members)",
-          duration: "Jan – Feb 2026",
-          tech: "React 19 • Vite • Material UI • Django • Django REST Framework • PostgreSQL • JWT • jsPDF",
-          bullets: [
-            "Led 5-member team; solely owned entire backend development including 30+ REST APIs and AbstractUser auth.",
-            "PostgreSQL schema with 10+ models (Lead, Company, Deal, Ticket) handling 5 CRM modules.",
-            "Configured robust CSV import/export utilities for bulk company and lead data ingestions.",
-            "Designed analytical visualizers to track deal closures, ticket statuses, and employee activity logs.",
-            "Authored full technical documentation, explaining state management and permission structures.",
-            "Achieved 100% on-time milestone delivery through clear Agile sprint execution."
-          ]
-        },
-        {
-          name: "ShaKart – E-Commerce Web Application",
-          duration: "Sep – Nov 2025",
-          tech: "Django 5.2 • PostgreSQL • Bootstrap 5 • Django ORM • ModelForms • Python",
-          bullets: [
-            "Developed fully featured e-commerce application supporting product catalog search and secure user checkout.",
-            "Responsive Bootstrap 5 UI with dark mode, glassmorphism effects, image zoom, and 3-slide auto-rotating hero carousel.",
-            "Optimized item retrieval speeds using indexed MongoDB queries / Django ORM filters.",
-            "Implemented custom admin panels to manage catalog listings and customer order tickets.",
-            "Designed clean input forms with thorough validation schemas, preventing invalid submissions.",
-            "Cached product listings to ensure instant page paint times on lower-end devices."
-          ]
-        },
-        {
-          name: "SHOP.CO – Full-Stack E-Commerce Application",
-          duration: "Oct – Nov 2025",
-          tech: "React • Redux Toolkit • Django • DRF • PostgreSQL • Vite • Axios • JWT",
-          bullets: [
-            "React + Redux Toolkit state architecture handling authentication slices, product listings, and cart states.",
-            "Connected DRF/NestJS backend APIs, configuring Axios interceptors for automated JWT injection.",
-            "Styled high-fidelity checkout checkout pages, ensuring pixel-perfect responsive layouts.",
-            "Added protection rules on route links, redirecting unauthenticated users to login portals.",
-            "Wrote comprehensive unit test runs for cart slice states and user checkout procedures.",
-            "Monitored network bundles using Vite analyzer, trimming redundant client dependencies by 20%."
-          ]
-        }
-      ];
-    }
+    if (typeof projectsList === "string") projectsList = [];
 
-    const education = cv.education || "B.Sc Computer Science (2022 – 2025) • University of Calicut";
+    const education = cv.education || "";
 
     let certifications = cv.certifications || [];
     let achievements = cv.achievements || [];
@@ -2775,21 +2615,6 @@ ${candidateName}`;
       certifications = altItems.slice(0, 4);
       achievements = altItems.slice(4);
     }
-    if (certifications.length === 0) {
-      certifications = [
-        "AI-Powered Full Stack Developer Internship (React + Python) – Upcode Software Labs (Jun 2025 – Apr 2026)",
-        "Flutter & Dart Mobile Development Internship – Trycode Innovations (Mar 2025)",
-        "Software Development Bootcamp – Upcode Labs (Feb 2024)",
-        "Cybersecurity Internship – TechbyHeart, Kochi (Dec 2023)"
-      ];
-    }
-    if (achievements.length === 0) {
-      achievements = [
-        "Best Performer – Hackathon 2025: Built a fully responsive OTT Platform UI in under 2 hours.",
-        "Workshop Lead: Conducted a hands-on Firebase deployment workshop, mentoring 25+ peers.",
-        "Team Leadership: Led full-stack development teams across 2 projects, delivering production-ready applications."
-      ];
-    }
 
     return (
       <div className="resume-body" style={{ fontSize: "0.81rem", color: "#1e293b", fontFamily: "var(--font-sans)", lineHeight: "1.45" }}>
@@ -2797,19 +2622,32 @@ ${candidateName}`;
         {isSectionVisible('header') && (
           <div onClick={() => handleSectionClick('header')} style={getSectionStyle('header')}>
             {renderSectionBadge('header')}
+            <button
+              className="section-edit-icon"
+              style={{ position: 'absolute', top: '0.45rem', right: '0.55rem' }}
+              onClick={(e) => { e.stopPropagation(); handleSectionClick('header'); }}
+              title="Edit Header & Contact"
+            >
+              <EditPencilIcon />
+            </button>
             <div style={{ textAlign: "center", marginBottom: "0.6rem" }}>
-              <h2 className="resume-name" style={{ fontSize: "1.4rem", color: "#0f172a", textTransform: "uppercase", fontWeight: "800", marginBottom: "0.15rem", letterSpacing: "-0.01em" }}>
-                {name}
+              <h2 className="resume-name" style={{ fontSize: "1.4rem", color: cv.name ? "#0f172a" : "#cbd5e1", textTransform: "uppercase", fontWeight: "800", marginBottom: "0.15rem", letterSpacing: "-0.01em" }}>
+                {cv.name || "Your Name"}
               </h2>
               <div style={{ fontSize: "0.81rem", color: "#0f172a", fontWeight: "600", marginBottom: "0.2rem" }}>
-                {position}  •  {headerSkills}
+                {position}{headerSkills ? `  •  ${headerSkills}` : ""}
               </div>
-              <div style={{ fontSize: "0.76rem", color: "#475569", display: "flex", justifyContent: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.1rem" }}>
-                <span>{phone}</span> | <span>{email}</span> | <span>{location}</span>
-              </div>
-              <div style={{ fontSize: "0.76rem", color: "#475569", display: "flex", justifyContent: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                <span>{portfolio}</span> | <span>{linkedin}</span> | <span>{github}</span>
-              </div>
+              {contactRow1.length > 0 && (
+                <div style={{ fontSize: "0.76rem", color: "#475569", display: "flex", justifyContent: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.1rem" }}>
+                  {contactRow1.map((v, i) => <span key={i}>{i > 0 ? "| " : ""}{v}</span>)}
+                </div>
+              )}
+              {contactRow2.length > 0 && (
+                <div style={{ fontSize: "0.76rem", color: "#475569", display: "flex", justifyContent: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                  {contactRow2.map((v, i) => <span key={i}>{i > 0 ? "| " : ""}{v}</span>)}
+                </div>
+              )}
+              {!cv.name && contactRow1.length === 0 && emptyNote("Contact details")}
             </div>
           </div>
         )}
@@ -2821,16 +2659,18 @@ ${candidateName}`;
             <div className="resume-section-header">
               <span>Professional Summary</span>
               <button
-                className="section-ai-icon"
-                onClick={(e) => { e.stopPropagation(); cycleSectionAlternative('summary'); }}
-                title="Generate alternative AI content for this section"
+                className="section-edit-icon"
+                onClick={(e) => { e.stopPropagation(); handleSectionClick('summary'); }}
+                title="Edit Professional Summary"
               >
-                <SparklesIcon style={{ width: "0.75rem", height: "0.75rem" }} />
+                <EditPencilIcon />
               </button>
             </div>
-            <p className="resume-text" style={{ textAlign: "justify", marginBottom: "0.4rem" }}>
-              {isOptimized ? renderWithHighlights(summary) : summary}
-            </p>
+            {summary ? (
+              <p className="resume-text" style={{ textAlign: "justify", marginBottom: "0.4rem" }}>
+                {isOptimized ? renderWithHighlights(summary) : summary}
+              </p>
+            ) : emptyNote("Summary")}
           </div>
         )}
 
@@ -2841,36 +2681,47 @@ ${candidateName}`;
             <div className="resume-section-header">
               <span>Technical Skills</span>
               <button
-                className="section-ai-icon"
-                onClick={(e) => { e.stopPropagation(); cycleSectionAlternative('skills'); }}
-                title="Generate alternative AI content for this section"
+                className="section-edit-icon"
+                onClick={(e) => { e.stopPropagation(); handleSectionClick('skills'); }}
+                title="Edit Technical Skills"
               >
-                <SparklesIcon style={{ width: "0.75rem", height: "0.75rem" }} />
+                <EditPencilIcon />
               </button>
             </div>
+            {![frontendSkills, backendSkills, databaseSkills, toolsSkills, conceptsSkills, aiSkills].some(v => v && v !== "—") ? emptyNote("Skills") : (
             <table className="skills-table">
               <tbody>
+                {frontendSkills && frontendSkills !== "—" && (
                 <tr>
                   <td>Frontend</td>
                   <td>{frontendSkills}</td>
                 </tr>
+                )}
+                {backendSkills && backendSkills !== "—" && (
                 <tr>
                   <td>Backend</td>
                   <td>{backendSkills}</td>
                 </tr>
+                )}
+                {databaseSkills && databaseSkills !== "—" && (
                 <tr>
                   <td>Database</td>
                   <td>{databaseSkills}</td>
                 </tr>
+                )}
+                {toolsSkills && toolsSkills !== "—" && (
                 <tr>
                   <td>Tools</td>
                   <td>{toolsSkills}</td>
                 </tr>
+                )}
+                {conceptsSkills && conceptsSkills !== "—" && (
                 <tr>
                   <td>Concepts</td>
                   <td>{conceptsSkills}</td>
                 </tr>
-                {aiSkills && (
+                )}
+                {aiSkills && aiSkills !== "—" && (
                   <tr>
                     <td>AI Integrations</td>
                     <td>{aiSkills}</td>
@@ -2878,6 +2729,7 @@ ${candidateName}`;
                 )}
               </tbody>
             </table>
+            )}
           </div>
         )}
 
@@ -2888,14 +2740,14 @@ ${candidateName}`;
             <div className="resume-section-header">
               <span>Work Experience</span>
               <button
-                className="section-ai-icon"
-                onClick={(e) => { e.stopPropagation(); cycleSectionAlternative('experience'); }}
-                title="Generate alternative AI content for this section"
+                className="section-edit-icon"
+                onClick={(e) => { e.stopPropagation(); handleSectionClick('experience'); }}
+                title="Edit Work Experience"
               >
-                <SparklesIcon style={{ width: "0.75rem", height: "0.75rem" }} />
+                <EditPencilIcon />
               </button>
             </div>
-            {experienceList.length > 0 && typeof experienceList[0] === "string" ? (
+            {experienceList.length === 0 ? emptyNote("Experience") : experienceList.length > 0 && typeof experienceList[0] === "string" ? (
               <ul className="resume-list" style={{ marginTop: "0.1rem", marginBottom: "0.3rem" }}>
                 {experienceList.map((bullet, idx) => (
                   <li key={idx}>{isOptimized ? renderWithHighlights(bullet) : bullet}</li>
@@ -2934,14 +2786,14 @@ ${candidateName}`;
             <div className="resume-section-header">
               <span>Projects</span>
               <button
-                className="section-ai-icon"
-                onClick={(e) => { e.stopPropagation(); cycleSectionAlternative('projects'); }}
-                title="Generate alternative AI content for this section"
+                className="section-edit-icon"
+                onClick={(e) => { e.stopPropagation(); handleSectionClick('projects'); }}
+                title="Edit Projects"
               >
-                <SparklesIcon style={{ width: "0.75rem", height: "0.75rem" }} />
+                <EditPencilIcon />
               </button>
             </div>
-            {projectsList.length > 0 && typeof projectsList[0] === "string" ? (
+            {projectsList.length === 0 ? emptyNote("Projects") : projectsList.length > 0 && typeof projectsList[0] === "string" ? (
               <ul className="resume-list" style={{ marginTop: "0.1rem", marginBottom: "0.3rem" }}>
                 {projectsList.map((bullet, idx) => (
                   <li key={idx}>{isOptimized ? renderWithHighlights(bullet) : bullet}</li>
@@ -2979,14 +2831,14 @@ ${candidateName}`;
             <div className="resume-section-header">
               <span>Education</span>
               <button
-                className="section-ai-icon"
-                onClick={(e) => { e.stopPropagation(); cycleSectionAlternative('education'); }}
-                title="Generate alternative AI content for this section"
+                className="section-edit-icon"
+                onClick={(e) => { e.stopPropagation(); handleSectionClick('education'); }}
+                title="Edit Education"
               >
-                <SparklesIcon style={{ width: "0.75rem", height: "0.75rem" }} />
+                <EditPencilIcon />
               </button>
             </div>
-            {Array.isArray(education) ? (
+            {(!education || education.length === 0) ? emptyNote("Education") : Array.isArray(education) ? (
               <ul className="resume-list" style={{ marginTop: "0.1rem", marginBottom: "0.3rem", listStyleType: "none", paddingLeft: 0 }}>
                 {education.map((edu, idx) => (
                   <li key={idx} className="resume-text" style={{ marginBottom: "0.25rem" }}>
@@ -3009,18 +2861,20 @@ ${candidateName}`;
             <div className="resume-section-header">
               <span>Certifications & Training</span>
               <button
-                className="section-ai-icon"
-                onClick={(e) => { e.stopPropagation(); cycleSectionAlternative('certifications'); }}
-                title="Generate alternative AI content for this section"
+                className="section-edit-icon"
+                onClick={(e) => { e.stopPropagation(); handleSectionClick('certifications'); }}
+                title="Edit Certifications & Training"
               >
-                <SparklesIcon style={{ width: "0.75rem", height: "0.75rem" }} />
+                <EditPencilIcon />
               </button>
             </div>
+            {certifications.length === 0 ? emptyNote("Certifications") : (
             <ul className="resume-list" style={{ marginBottom: "0.4rem" }}>
               {certifications.map((cert, idx) => (
                 <li key={idx}>{isOptimized ? renderWithHighlights(cert) : cert}</li>
               ))}
             </ul>
+            )}
           </div>
         )}
 
@@ -3031,18 +2885,20 @@ ${candidateName}`;
             <div className="resume-section-header">
               <span>Achievements</span>
               <button
-                className="section-ai-icon"
-                onClick={(e) => { e.stopPropagation(); cycleSectionAlternative('achievements'); }}
-                title="Generate alternative AI content for this section"
+                className="section-edit-icon"
+                onClick={(e) => { e.stopPropagation(); handleSectionClick('achievements'); }}
+                title="Edit Achievements"
               >
-                <SparklesIcon style={{ width: "0.75rem", height: "0.75rem" }} />
+                <EditPencilIcon />
               </button>
             </div>
+            {achievements.length === 0 ? emptyNote("Achievements") : (
             <ul className="resume-list" style={{ marginBottom: "0.4rem" }}>
               {achievements.map((ach, idx) => (
                 <li key={idx}>{isOptimized ? renderWithHighlights(ach) : ach}</li>
               ))}
             </ul>
+            )}
           </div>
         )}
       </div>
@@ -3191,128 +3047,26 @@ ${candidateName}`;
             ))}
           </div>
 
-          {/* Suggested roles — collapsed behind a dropdown, shown on click */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
-            <button
-              type="button"
-              onClick={() => setShowRoleDropdown(v => !v)}
-              style={{
-                display: "flex", alignItems: "center", gap: "0.45rem",
-                background: "#ffffff", border: "1px solid var(--border-color)", borderRadius: "50px",
-                padding: "0.5rem 1.2rem", fontSize: "0.85rem", fontWeight: 600,
-                color: "var(--text-gray)", cursor: "pointer", transition: "var(--transition)",
-              }}
-            >
-              Suggested Roles
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: "0.85rem", height: "0.85rem", strokeWidth: 2.5, transform: showRoleDropdown ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {showRoleDropdown && (
-              <div className="pill-list" style={{ maxHeight: "none" }}>
-                {categories.map((pill) => (
-                  <span
-                    key={pill}
-                    className={`pill-tag ${activePill === pill ? "active" : ""}`}
-                    onClick={() => { setShowRoleDropdown(false); handlePillClick(pill); }}
-                  >
-                    {pill}
-                  </span>
-                ))}
-              </div>
-            )}
+          {/* Suggested roles — always visible, pick one to start building */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem", marginBottom: "2rem" }}>
+            <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 800, color: "var(--text-gray)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              🎯 Pick a role to build your AI CV
+            </p>
+            <div className="pill-list" style={{ maxHeight: "none", justifyContent: "center" }}>
+              {categories.map((pill) => (
+                <span
+                  key={pill}
+                  className={`pill-tag ${activePill === pill ? "active" : ""}`}
+                  onClick={() => handlePillClick(pill)}
+                >
+                  {pill}
+                </span>
+              ))}
+            </div>
           </div>
 
           {/* Hidden file upload — single instance */}
           <input type="file" ref={fileInputRef} style={{ display: "none" }} accept=".txt,.pdf,.docx" onChange={handleFileChange} />
-
-          {/* Bottom chat bar */}
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50 }}>
-            <div className="bottom-chat-container">
-              {/* Floating conversation panel — starts with the first question */}
-              <div style={{
-                background: "#ffffff", border: "1px solid var(--border-color)", borderRadius: "18px",
-                boxShadow: "0 12px 40px rgba(15, 23, 42, 0.12)", marginBottom: "0.75rem",
-                maxHeight: "46vh", display: "flex", flexDirection: "column", overflow: "hidden",
-              }}>
-                <div style={{
-                  display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.65rem 1rem",
-                  borderBottom: "1px solid var(--border-color)", background: "#f8fafc",
-                }}>
-                  <div style={{ width: "22px", height: "22px", background: "linear-gradient(135deg, #2563eb, #3b82f6)", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg viewBox="0 0 24 24" fill="white" style={{ width: "0.7rem", height: "0.7rem" }}>
-                      <path d="M12 2L14.3 7.7L20 10L14.3 12.3L12 18L9.7 12.3L4 10L9.7 7.7L12 2Z" />
-                    </svg>
-                  </div>
-                  <span style={{ fontWeight: 700, fontSize: "0.78rem", color: "var(--text-dark)" }}>IntelliHire AI Assistant</span>
-                  <span style={{ marginLeft: "auto", fontSize: "0.65rem", fontWeight: 700, color: "#16a34a", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                    <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-                    Online
-                  </span>
-                </div>
-                <div style={{ flex: 1, overflowY: "auto", padding: "0.9rem 1rem", display: "flex", flexDirection: "column", gap: "0.7rem" }}>
-                  {renderChatHistoryBlock()}
-                  {currentMessages.map((msg) => (
-                    <div key={msg.id} style={{ display: "flex", flexDirection: "column", alignItems: msg.sender === "user" ? "flex-end" : "flex-start", gap: "0.35rem" }}>
-                      <div style={{
-                        maxWidth: "85%", padding: "0.6rem 0.85rem",
-                        borderRadius: msg.sender === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                        background: msg.sender === "user" ? "var(--accent-blue)" : "#f8fafc",
-                        color: msg.sender === "user" ? "#ffffff" : "var(--text-dark)",
-                        border: msg.sender === "user" ? "none" : "1px solid var(--border-color)",
-                        fontSize: "0.78rem", lineHeight: 1.55, textAlign: "left",
-                      }}>
-                        {msg.text.split("\n").map((line, lIdx) => (
-                          <p key={lIdx} style={{ margin: 0, marginBottom: lIdx < msg.text.split("\n").length - 1 ? "0.4rem" : 0 }}>
-                            {line.split("**").map((part, i) => i % 2 === 1 ? <strong key={i} style={{ fontWeight: 700 }}>{part}</strong> : part)}
-                          </p>
-                        ))}
-                      </div>
-                      {msg.sender === "ai" && msg === lastMessage && renderMessageExtras(msg)}
-                    </div>
-                  ))}
-                  {isOptimizing && (
-                    <div style={{ display: "flex" }}>
-                      <div style={{ background: "#f8fafc", border: "1px solid var(--border-color)", borderRadius: "14px 14px 14px 4px", padding: "0.55rem 0.8rem", display: "flex", gap: "4px", alignItems: "center" }}>
-                        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#3b82f6", animation: "bounce 1.2s infinite 0s" }} />
-                        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#3b82f6", animation: "bounce 1.2s infinite 0.2s" }} />
-                        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#3b82f6", animation: "bounce 1.2s infinite 0.4s" }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="chat-composer-section">
-                <form onSubmit={handleSendChatMessage} className="chat-composer-input-row" style={{ margin: 0 }}>
-                  <input
-                    type="text"
-                    className="chat-input-field"
-                    placeholder="Type your answer..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                  />
-                  <div className="chat-composer-actions">
-                    <button type="button" className={`chat-audio-btn ${isListening ? "listening" : ""}`} onClick={handleSpeechToText} title={isListening ? "Listening... Click to stop" : "Speak to write..."}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: "1.2rem", height: "1.2rem" }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                      </svg>
-                    </button>
-                    <button type="button" className="chat-upload-btn-premium" onClick={() => setShowUploadModal(true)} title="Upload existing CV">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: "1.1rem", height: "1.1rem" }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4.5v15m7.5-7.5h-15" />
-                      </svg>
-                      <span style={{ fontSize: "0.75rem", fontWeight: "700", whiteSpace: "nowrap" }}>Upload CV</span>
-                    </button>
-                    <button type="submit" className="chat-send-btn-round" title="Send message">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                      </svg>
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -3401,8 +3155,21 @@ ${candidateName}`;
               </div>
             )}
 
-            {/* ATS Score strip */}
-            {!isOptimizing && isAnalyzed && customOptimizationResult && (
+            {/* Builder toolbar — suggestion-built CVs get a clean bar without ATS scores */}
+            {!isOptimizing && isAnalyzed && customOptimizationResult && !parsedCV && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-gray)' }}>
+                  ✨ Building your <span style={{ color: 'var(--accent-blue)' }}>{cvDraftData?.position || 'CV'}</span> — follow the chat on the right
+                </span>
+                <button onClick={handleDownloadPdf} title="Download CV as PDF"
+                  style={{ marginLeft: 'auto', padding: '0.6rem 1rem', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <DownloadIcon /> PDF
+                </button>
+              </div>
+            )}
+
+            {/* ATS Score strip — only for genuinely uploaded CVs */}
+            {!isOptimizing && isAnalyzed && customOptimizationResult && parsedCV && (
               <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
                 <div style={{ flex: 1, background: '#f1f5f9', borderRadius: '10px', padding: '0.6rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Original ATS</span>
@@ -3655,7 +3422,7 @@ ${candidateName}`;
               </div>
 
               {/* Messages area — dimmed collapsible history above the current conversation */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', backgroundColor: '#f6f8fb' }}>
                 {renderChatHistoryBlock()}
                 {currentMessages.map((msg) => (
                   <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start', gap: '0.4rem' }}>
@@ -3663,13 +3430,13 @@ ${candidateName}`;
                       maxWidth: '82%',
                       padding: '0.75rem 1rem',
                       borderRadius: msg.sender === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                      background: msg.sender === 'user' ? '#2563eb' : '#f8fafc',
+                      background: msg.sender === 'user' ? 'linear-gradient(135deg, #2563eb, #3b82f6)' : '#ffffff',
                       color: msg.sender === 'user' ? '#ffffff' : '#1e293b',
-                      border: msg.sender === 'user' ? 'none' : '1px solid #e2e8f0',
+                      border: msg.sender === 'user' ? 'none' : '1px solid #e8edf4',
                       fontSize: '0.8rem',
                       lineHeight: '1.5',
                       fontWeight: msg.sender === 'user' ? 500 : 400,
-                      boxShadow: msg.sender === 'user' ? '0 4px 12px rgba(37,99,235,0.15)' : 'none',
+                      boxShadow: msg.sender === 'user' ? '0 4px 12px rgba(37,99,235,0.18)' : '0 1px 4px rgba(15,23,42,0.05)',
                     }}>
                       {msg.text.split('\n').map((line, lIdx) => (
                         <p key={lIdx} style={{ margin: 0, marginBottom: lIdx < msg.text.split('\n').length - 1 ? '0.5rem' : 0 }}>
@@ -3677,6 +3444,11 @@ ${candidateName}`;
                         </p>
                       ))}
                     </div>
+                    {msg.id > 1e12 && (
+                      <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', padding: '0 0.3rem' }}>
+                        {new Date(msg.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
                     {msg.sender === 'ai' && msg === lastMessage && renderMessageExtras(msg)}
                   </div>
                 ))}
@@ -3687,65 +3459,14 @@ ${candidateName}`;
                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6', animation: 'bounce 1.2s infinite 0.2s' }} />
                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6', animation: 'bounce 1.2s infinite 0.4s' }} />
                     </div>
+                    <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 600 }}>IntelliHire AI is typing…</span>
                   </div>
                 )}
+                <div ref={chatEndRef} />
               </div>
 
-              {/* Chat input styled like Claude (floating white panel inside input container) */}
-              <div style={{ padding: '1rem 1.25rem 1.25rem 1.25rem', backgroundColor: 'transparent', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                {/* Dynamic Skills Recommendations Tag Chips */}
-                {highlightedSection === 'skills' && cvDraftData && (
-                  <div style={{
-                    padding: '0.65rem 0.85rem',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '12px',
-                    backgroundColor: '#ffffff',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.4rem',
-                    flexShrink: 0,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
-                  }}>
-                    <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-gray)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" style={{ width: '0.8rem', height: '0.8rem', strokeWidth: 2.5 }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581a1.5 1.5 0 002.122 0l4.72-4.72a1.5 1.5 0 000-2.122L11.16 3.659A1.5 1.5 0 0010.165 3z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
-                      </svg>
-                      Toggle Recommended Skills for {cvDraftData.position || 'Developer'}:
-                    </p>
-                    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', maxHeight: '95px', overflowY: 'auto', paddingBottom: '0.15rem' }}>
-                      {getRecommendedSkills(cvDraftData.position || '').map((skill) => {
-                        const present = isSkillPresent(skill);
-                        return (
-                          <button
-                            key={skill}
-                            type="button"
-                            onClick={() => toggleRecommendedSkill(skill)}
-                            style={{
-                              padding: '0.25rem 0.55rem',
-                              borderRadius: '50px',
-                              border: present ? '1.25px solid #2563eb' : '1.25px solid #e2e8f0',
-                              backgroundColor: present ? '#eff6ff' : '#f8fafc',
-                              color: present ? '#2563eb' : '#475569',
-                              fontSize: '0.68rem',
-                              fontWeight: 650,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.2rem',
-                              transition: 'all 0.15s',
-                              boxShadow: present ? '0 1px 3px rgba(37,99,235,0.08)' : 'none'
-                            }}
-                          >
-                            {present ? '✓ ' : '+ '}
-                            {skill}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
+              {/* Composer — visually separated from the message stream */}
+              <div style={{ padding: '0.9rem 1.25rem 1.1rem 1.25rem', backgroundColor: '#ffffff', borderTop: '1px solid var(--border-color)', boxShadow: '0 -6px 16px rgba(15, 23, 42, 0.04)', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 <form onSubmit={handleSendChatMessage} style={{
                   background: '#ffffff',
                   border: '1.5px solid #cbd5e1',
@@ -3806,6 +3527,7 @@ ${candidateName}`;
                         </svg>
                       </button>
                       <button type="submit" title="Send"
+                        disabled={isOptimizing}
                         style={{
                           width: '32px',
                           height: '32px',
@@ -3813,7 +3535,8 @@ ${candidateName}`;
                           border: 'none',
                           background: 'var(--accent-blue)',
                           color: '#fff',
-                          cursor: 'pointer',
+                          opacity: isOptimizing ? 0.5 : 1,
+                          cursor: isOptimizing ? 'not-allowed' : 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
