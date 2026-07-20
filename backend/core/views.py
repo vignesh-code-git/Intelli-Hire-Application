@@ -6,6 +6,8 @@ from .models import Job, CandidateCV, CVOptimization, ContentSnippet
 from .nlp_engine import NLPParser, TFIDFVectorizer, LLMOptimizer, SKILLS_TAXONOMY
 from .ai_chat import generate_reply
 from .knowledge_base import ROLE_KB
+from .ml_engine import predict_roles
+from .llm_chat import generate_llm_reply
 
 # Document extraction helpers
 from pypdf import PdfReader
@@ -222,9 +224,47 @@ def chat_assistant(request):
         message = (data.get('message') or '').strip()
         if not message:
             return JsonResponse({'error': 'Empty message.'}, status=400)
-        result = generate_reply(message)
+        # LLM-first when the local model is enabled; rule engine otherwise/on failure
+        result = generate_llm_reply(message)
+        if result is None:
+            result = generate_reply(message)
+            result.setdefault('source', 'rules')
         result['success'] = True
         return JsonResponse(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+def predict_role(request):
+    """ML endpoint — predicts the best-fit job roles for a CV using the trained
+    scikit-learn classifier (TF-IDF + Logistic Regression)."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        cv_text = request.POST.get('cv_text', '')
+        cv_file = request.FILES.get('cv_file')
+
+        if cv_file:
+            cv_text = parse_uploaded_file(cv_file)
+
+        if not cv_text or not cv_text.strip():
+            if request.body:
+                try:
+                    data = json.loads(request.body)
+                    cv_text = data.get('cv_text', '')
+                except Exception:
+                    pass
+
+        if not cv_text or not cv_text.strip():
+            return JsonResponse({'error': 'No CV text or file provided.'}, status=400)
+
+        predictions = predict_roles(cv_text)
+        return JsonResponse({'success': True, 'predictions': predictions})
+    except FileNotFoundError as e:
+        return JsonResponse({'error': str(e)}, status=503)
     except Exception as e:
         import traceback
         traceback.print_exc()

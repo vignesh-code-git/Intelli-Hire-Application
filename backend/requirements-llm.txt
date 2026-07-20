@@ -1,0 +1,6 @@
+# Local-LLM extras — install ONLY on your own machine, never on Render:
+#   pip install -r requirements-llm.txt
+# Then set ENABLE_LOCAL_LLM=true in backend/.env to switch the chat to the
+# local model (Qwen2.5-0.5B-Instruct, ~1 GB one-time download, runs on CPU).
+transformers
+torch

@@ -7,6 +7,7 @@ urlpatterns = [
     path('optimize/', views.optimize_cv, name='optimize_cv'),
     path('recommend/', views.recommend_jobs, name='recommend_jobs'),
     path('chat/', views.chat_assistant, name='chat_assistant'),
+    path('predict-role/', views.predict_role, name='predict_role'),
     path('stats/', views.platform_stats, name='platform_stats'),
     path('cv-content/', views.cv_content, name='cv_content'),
 ]
