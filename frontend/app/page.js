@@ -702,15 +702,13 @@ export default function Home() {
 
   const getHeaderQuestionText = (idx) => {
     switch (idx) {
-      case 0: return "What is your full name?";
-      case 1: return "What is your job position?";
-      case 2: return "List your existing skills (or enter custom ones to add/modify):";
-      case 3: return "What is your phone number?";
-      case 4: return "What is your email address?";
-      case 5: return "What is your city, state, and country?";
-      case 6: return "What is your portfolio URL/ID?";
-      case 7: return "What is your LinkedIn profile link/ID?";
-      case 8: return "What is your GitHub profile link/ID?";
+      case 0: return "Enter your full name";
+      case 1: return "What role are you targeting?";
+      case 2: return "Add your key skills";
+      case 3: return "Enter your email address";
+      case 4: return "Enter your phone number";
+      case 5: return "Where are you based?";
+      case 6: return "Add your professional links";
       default: return "";
     }
   };
@@ -880,6 +878,7 @@ export default function Home() {
   const [platformStats, setPlatformStats] = useState(null);
   const [chatInput, setChatInput] = useState("");
   const [isChatCollapsed, setIsChatCollapsed] = useState(true);
+  const [chatTab, setChatTab] = useState('assistant'); // 'assistant' | 'jobs'
   const chatEndRef = useRef(null);
 
   // Keep the newest message (or typing indicator) in view
@@ -904,6 +903,8 @@ export default function Home() {
   // "type my own data" for every portion of the CV.
   // ═══════════════════════════════════════════════════════════
   const [sectionEditFlow, setSectionEditFlow] = useState(null); // { section, stage: 'choose'|'pick'|'await-own' }
+  // Guided work-experience flow — asks company → title → duration, then a role-based bullet picker.
+  const [expFlow, setExpFlow] = useState(null); // { stage: 'company'|'title'|'duration'|'bullets', draft, pool, chosen }
 
   const pushAiMessage = (msg) =>
     setChatMessages(prev => [...prev, { id: Date.now() + Math.random(), sender: 'ai', ...msg }]);
@@ -1087,15 +1088,15 @@ export default function Home() {
   const openSectionEditor = async (section, savedFrom = null) => {
     setHighlightedSection(section);
     setHeaderQuestionIdx(null);
+    setExpFlow(null);
     // Interactive transition: confirm what was saved, introduce what comes next
-    const savedNote = savedFrom ? `✅ **${SECTION_LABELS[savedFrom]} saved** — it's live on your CV.\n\n` : '';
-    const stepTag = guidedRef.current
-      ? `${savedNote}**Step ${NEXT_ORDER.indexOf(section) + 1} of ${NEXT_ORDER.length} — ${SECTION_LABELS[section]}.** `
-      : `${savedNote}**${SECTION_LABELS[section]}** — `;
+    const savedNote = savedFrom ? `✅ **${SECTION_LABELS[savedFrom]} added** — it's live on your CV.\n\n` : '';
+    const intro = `${savedNote}**${SECTION_LABELS[section]}**`;
 
     if (section === 'header') {
       setSectionEditFlow(null);
-      pushAiMessage({ text: `${stepTag}Fill in your details below and press Save:`, headerForm: true });
+      setHeaderQuestionIdx(0);
+      pushAiMessage({ text: `${savedNote}**Enter your full name**`, hint: 'e.g. Ravi Kumar' });
       return;
     }
 
@@ -1114,7 +1115,7 @@ export default function Home() {
         return { ...prev, skills: filtered };
       });
       pushAiMessage({
-        text: `${stepTag}Tap chips to add or remove skills — the recommended set for your role is pre-selected:`,
+        text: `${intro} — tap chips to add or remove. The recommended set for your role is pre-selected:`,
         skillsPicker: true,
         options: [{ label: '✓ Done — next section', action: 'section-done', section: 'skills' }],
       });
@@ -1122,26 +1123,23 @@ export default function Home() {
     }
 
     if (section === 'experience') {
+      // Guided, one-by-one flow: company → title → duration → role-based bullets
       setSectionEditFlow(null);
+      setExpFlow({ stage: 'company', draft: {}, pool: [], chosen: [] });
       pushAiMessage({
-        text: `${stepTag}Fill in the details and pick the months and years — or apply a ready-made suggestion:`,
-        experienceForm: true,
-        options: [
-          { label: 'Use AI suggestion instead', action: 'ai-suggest', section: 'experience' },
-          { label: 'Skip for now', action: 'skip', section: 'experience' },
-        ],
+        text: `${savedNote}**Which company did you work for?**`,
+        hint: 'e.g. TCS, Infosys, or a startup name',
+        options: [{ label: 'Skip experience', action: 'skip', section: 'experience' }],
       });
       return;
     }
 
-    // Every other section goes straight to tappable suggestion cards — no typing needed
-    const cards = await buildSectionSuggestions(section);
-    setSectionEditFlow({ section, stage: 'pick' });
+    // Text sections — ask for the user's own details first, then polish into options
+    setSectionEditFlow({ section, stage: 'await-own' });
     pushAiMessage({
-      text: `${stepTag}Tap a suggestion to apply it:`,
-      cards: cards.map(c => ({ ...c, section })),
+      text: `${intro} — ${SECTION_QUESTIONS[section] || `tell me about your ${SECTION_LABELS[section].toLowerCase()} and I'll polish it.`}`,
       options: [
-        { label: "I'll type my own instead", action: 'own', section },
+        { label: '✨ Suggest content for me', action: 'ai-suggest', section },
         { label: 'Skip for now', action: 'skip', section },
       ],
     });
@@ -1380,9 +1378,11 @@ export default function Home() {
     }
     if (opt.action === 'skip') {
       setSectionEditFlow(null);
+      setExpFlow(null);
       advanceGuided(opt.section);
       return;
     }
+    if (opt.action === 'exp-done') { finishExperienceFlow(); return; }
     if (opt.action === 'own') {
       setSectionEditFlow({ section: opt.section, stage: 'await-own' });
       pushAiMessage({ text: `Sure — ${SECTION_QUESTIONS[opt.section] || `type your ${SECTION_LABELS[opt.section]} below and hit send.`}` });
@@ -1402,6 +1402,89 @@ export default function Home() {
       applySectionSuggestion(opt.section, opt.payload);
       return;
     }
+  };
+
+  // ── Guided Work-Experience flow ─────────────────────────────────
+  // Role-specific bullet points the user can choose from
+  const roleExperienceBullets = () => {
+    const role = getRoleType(cvDraftData?.position || '');
+    const bank = EXPERIENCE_BANK[role] || EXPERIENCE_BANK.fullstack || Object.values(EXPERIENCE_BANK)[0] || [];
+    const pool = bank.flat().flatMap(e => e.bullets || []);
+    return [...new Set(pool)].slice(0, 8);
+  };
+
+  const handleExperienceAnswer = (userText) => {
+    const stage = expFlow?.stage;
+    if (stage === 'company') {
+      const draft = { ...expFlow.draft, company: userText.trim() };
+      setExpFlow({ ...expFlow, stage: 'title', draft });
+      pushAiMessage({
+        text: "**What was your job title there?**",
+        hint: `e.g. ${cvDraftData?.position || 'Software Engineer'}`,
+        suggestions: cvDraftData?.position ? [cvDraftData.position] : undefined,
+      });
+      return;
+    }
+    if (stage === 'title') {
+      const draft = { ...expFlow.draft, position: userText.trim() || cvDraftData?.position || 'Position' };
+      setExpFlow({ ...expFlow, stage: 'duration', draft });
+      pushAiMessage({
+        text: "**When did you work there?**",
+        hint: 'Start – end. Use "Present" if it\'s your current job',
+        suggestions: ['2023 – Present', '2022 – 2024', '2021 – 2023'],
+      });
+      return;
+    }
+    if (stage === 'duration') {
+      const draft = { ...expFlow.draft, duration: userText.trim() };
+      const pool = roleExperienceBullets();
+      setExpFlow({ ...expFlow, stage: 'bullets', draft, pool, chosen: pool.slice(0, 3) });
+      pushAiMessage({
+        text: `**What did you do at ${draft.company}?**\nTap the points that fit your **${draft.position}** role (a few are pre-selected). You can also type your own to add it.`,
+        expBulletPicker: true,
+        options: [{ label: '✓ Add to CV', action: 'exp-done' }],
+      });
+      return;
+    }
+    if (stage === 'bullets') {
+      // Typing while choosing bullets adds a custom, polished point.
+      // Re-push the picker so it stays the last message and shows the new point.
+      const custom = polishLine(userText);
+      if (!custom) return;
+      const pool = [...expFlow.pool, custom];
+      const chosen = [...expFlow.chosen, custom];
+      setExpFlow({ ...expFlow, pool, chosen });
+      pushAiMessage({
+        text: `Added **"${custom}"**. Tap more points or type another — then add it to your CV.`,
+        expBulletPicker: true,
+        options: [{ label: '✓ Add to CV', action: 'exp-done' }],
+      });
+      return;
+    }
+  };
+
+  const toggleExpBullet = (bullet) => {
+    setExpFlow(prev => {
+      if (!prev) return prev;
+      const has = prev.chosen.includes(bullet);
+      return { ...prev, chosen: has ? prev.chosen.filter(b => b !== bullet) : [...prev.chosen, bullet] };
+    });
+  };
+
+  const finishExperienceFlow = () => {
+    if (!expFlow) return;
+    const d = expFlow.draft || {};
+    const entry = {
+      position: d.position || cvDraftData?.position || 'Position',
+      company: d.company || 'Company',
+      place: d.place || '',
+      duration: d.duration || '',
+      bullets: expFlow.chosen.length ? expFlow.chosen : ['Contributed to the development and delivery of production applications.'],
+    };
+    setCvDraftData(prev => ({ ...prev, experience: [entry] }));
+    setExpFlow(null);
+    handleSectionProgress('experience');
+    advanceGuided('experience');
   };
 
   // Generates a role-tailored draft CV from the dataset and opens the workspace.
@@ -1429,9 +1512,18 @@ export default function Home() {
     setChatStep(4);
   };
 
-  // Manual, question-by-question header flow (never AI-generated)
+  // Manual, question-by-question header flow (never AI-generated).
+  // Every question is asked in a clear order (Step N of 8) and, where it helps,
+  // comes with tappable suggestion chips so the user can answer with one click.
   const handleHeaderAnswer = (userText) => {
+    const skip = userText.trim().toLowerCase() === 'skip';
+    const recSkills = getRecommendedSkills(cvDraftData?.position || '').slice(0, 6).join(', ');
+    const cityChips = ['Bangalore, Karnataka, India', 'Kochi, Kerala, India', 'Chennai, Tamil Nadu, India', 'Hyderabad, Telangana, India', 'Remote'];
+    const skillsHint = 'Separate with commas — or tap the recommended set below';
     let replyText = "";
+    let replyHint = null;
+    let replySuggestions = null;
+
     if (headerQuestionIdx === 0) {
       if (userText.includes(',')) {
         // "Name, Role" shortcut — capture both and jump ahead
@@ -1440,50 +1532,72 @@ export default function Home() {
         const pos = parts.slice(1).join(',').trim() || 'Full Stack Developer';
         setCvDraftData(prev => ({ ...prev, name: nm }));
         generateRoleCv(pos);
-        replyText = `Nice to meet you, **${nm}**. I've drafted a **${pos}** CV with AI content — now let's replace it with your real details.\n\n**List your existing skills (comma separated):**`;
+        replyText = "**Add your key skills**";
+        replyHint = skillsHint;
+        replySuggestions = getRecommendedSkills(pos).slice(0, 6).join(', ') ? [getRecommendedSkills(pos).slice(0, 6).join(', ')] : null;
         setHeaderQuestionIdx(2);
       } else {
         const val = userText.toUpperCase();
         setCvDraftData(prev => ({ ...prev, name: val }));
-        replyText = "**What is your job position?** (e.g. Frontend Developer)";
-        setHeaderQuestionIdx(1);
+        if (cvDraftData?.position) {
+          // Role already chosen from the picker — skip the position question
+          replyText = "**Add your key skills**";
+          replyHint = skillsHint;
+          replySuggestions = recSkills ? [recSkills] : null;
+          setHeaderQuestionIdx(2);
+        } else {
+          replyText = "**What role are you targeting?**";
+          replyHint = 'Pick one below, or type your own';
+          replySuggestions = ['Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 'Data Analyst'];
+          setHeaderQuestionIdx(1);
+        }
       }
     } else if (headerQuestionIdx === 1) {
       generateRoleCv(userText);
-      replyText = `I've drafted a **${userText}** CV with AI content — you can see it on the left. Now let's fill in your real details.\n\n**List your existing skills (comma separated):**`;
+      const rec = getRecommendedSkills(userText).slice(0, 6).join(', ');
+      replyText = "**Add your key skills**";
+      replyHint = skillsHint;
+      replySuggestions = rec ? [rec] : null;
       setHeaderQuestionIdx(2);
     } else if (headerQuestionIdx === 2) {
       setCvDraftData(prev => ({ ...prev, skills: categorizeSkills(userText) }));
-      replyText = "**What is your phone number?**";
+      replyText = "**Enter your email address**";
+      replyHint = 'e.g. ravi.kumar@gmail.com';
       setHeaderQuestionIdx(3);
     } else if (headerQuestionIdx === 3) {
-      setCvDraftData(prev => ({ ...prev, phone: userText }));
-      replyText = "**What is your email address?**";
+      setCvDraftData(prev => ({ ...prev, email: userText }));
+      replyText = "**Enter your phone number**";
+      replyHint = 'e.g. +91 98765 43210';
       setHeaderQuestionIdx(4);
     } else if (headerQuestionIdx === 4) {
-      setCvDraftData(prev => ({ ...prev, email: userText }));
-      replyText = "**What is your city, state, and country?**";
+      setCvDraftData(prev => ({ ...prev, phone: userText }));
+      replyText = "**Where are you based?**";
+      replyHint = 'City, State, Country — or tap a suggestion';
+      replySuggestions = cityChips;
       setHeaderQuestionIdx(5);
     } else if (headerQuestionIdx === 5) {
-      setCvDraftData(prev => ({ ...prev, location: userText }));
-      replyText = "**What is your portfolio URL/ID?**";
+      setCvDraftData(prev => ({ ...prev, location: skip ? '' : userText }));
+      replyText = "**Add your professional links**";
+      replyHint = 'Paste your LinkedIn and/or GitHub — or tap Skip';
+      replySuggestions = ['Skip'];
       setHeaderQuestionIdx(6);
     } else if (headerQuestionIdx === 6) {
-      setCvDraftData(prev => ({ ...prev, portfolio: userText }));
-      replyText = "**What is your LinkedIn profile link/ID?**";
-      setHeaderQuestionIdx(7);
-    } else if (headerQuestionIdx === 7) {
-      setCvDraftData(prev => ({ ...prev, linkedin: userText }));
-      replyText = "**What is your GitHub profile link/ID?**";
-      setHeaderQuestionIdx(8);
-    } else if (headerQuestionIdx === 8) {
-      setCvDraftData(prev => ({ ...prev, github: userText }));
+      if (!skip) {
+        // One combined step for links — sort each URL into LinkedIn / GitHub
+        const tokens = userText.split(/[\s,]+/).filter(Boolean);
+        let li = '', gh = '';
+        tokens.forEach(tok => {
+          const low = tok.toLowerCase();
+          if (low.includes('linkedin')) li = tok;
+          else if (low.includes('github')) gh = tok;
+        });
+        setCvDraftData(prev => ({ ...prev, linkedin: li || prev.linkedin, github: gh || prev.github }));
+      }
       setHeaderQuestionIdx(null);
-      pushAiMessage({ text: "**Header completed.** Your contact details are on the CV. Next:" });
       openSectionEditor('summary');
       return;
     }
-    setChatMessages(prev => [...prev, { id: Date.now() + 2, sender: "ai", text: replyText }]);
+    setChatMessages(prev => [...prev, { id: Date.now() + 2, sender: "ai", text: replyText, hint: replyHint || undefined, suggestions: replySuggestions || undefined }]);
   };
 
   // Fetch jobs from backend on component mount and handle click outside for dropdown
@@ -1585,7 +1699,7 @@ export default function Home() {
     setCompletedSections(['header']);
     setHighlightedSection('header');
     setSectionEditFlow(null);
-    setHeaderQuestionIdx(null);
+    setHeaderQuestionIdx(0);
     guidedRef.current = true;
 
     // Matching jobs for the recommendations rail
@@ -1594,8 +1708,8 @@ export default function Home() {
 
     setChatMessages([{
       id: Date.now(), sender: 'ai',
-      text: `Let's build your **${pill}** CV step by step — everything is pick-and-choose, no long typing needed.\n\n**Step 1 of 8 — Header.** Fill in your details below and press Save:`,
-      headerForm: true,
+      text: `**Enter your full name**`,
+      hint: 'e.g. Ravi Kumar',
     }]);
 
     setTimeout(() => {
@@ -1782,6 +1896,12 @@ export default function Home() {
         cards: cards.map(c => ({ ...c, section })),
         options: [{ label: 'Show AI suggestions instead', action: 'ai-suggest', section }],
       });
+      return;
+    }
+
+    // Guided work-experience flow — collect company → title → duration → bullets
+    if (expFlow) {
+      handleExperienceAnswer(userText);
       return;
     }
 
@@ -2354,7 +2474,7 @@ ${candidateName}`;
   // Renders AI option buttons + suggestion cards attached to a chat message
   const renderMessageExtras = (msg) => {
     if (!msg.cards && !msg.options && !(msg.suggestions?.length) && !(msg.jobs?.length)
-      && !msg.headerForm && !msg.skillsPicker && !msg.experienceForm) return null;
+      && !msg.headerForm && !msg.skillsPicker && !msg.experienceForm && !msg.expBulletPicker) return null;
 
     const formInputStyle = {
       width: '100%', padding: '0.42rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '8px',
@@ -2450,6 +2570,31 @@ ${candidateName}`;
             })}
           </div>
         )}
+        {msg.expBulletPicker && expFlow?.stage === 'bullets' && (
+          <div style={formCardStyle}>
+            <span style={formLabelStyle}>Responsibilities & achievements — tap to include</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.3rem' }}>
+              {(expFlow.pool || []).map((bullet, i) => {
+                const on = (expFlow.chosen || []).includes(bullet);
+                return (
+                  <button key={i} type="button" onClick={() => toggleExpBullet(bullet)}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '0.4rem', textAlign: 'left', width: '100%',
+                      padding: '0.4rem 0.55rem', borderRadius: '9px', fontSize: '0.72rem', fontWeight: 500, cursor: 'pointer',
+                      lineHeight: 1.35, border: on ? '1.25px solid #2563eb' : '1.25px solid #e2e8f0',
+                      background: on ? '#eff6ff' : '#f8fafc', color: on ? '#1e3a8a' : '#475569', transition: 'all 0.15s',
+                    }}>
+                    <span style={{ flexShrink: 0, fontWeight: 800, color: on ? '#2563eb' : '#94a3b8' }}>{on ? '✓' : '+'}</span>
+                    <span>{bullet}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.66rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              {(expFlow.chosen || []).length} selected · type below to add your own
+            </p>
+          </div>
+        )}
         {msg.experienceForm && (
           <form onSubmit={saveExperienceForm} style={formCardStyle}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.55rem' }}>
@@ -2507,18 +2652,18 @@ ${candidateName}`;
           </div>
         )}
         {msg.suggestions && msg.suggestions.length > 0 && (
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.15rem' }}>
             {msg.suggestions.map((s, i) => (
-              <button key={i} type="button" onClick={() => handleSendChatMessage(null, s)}
-                style={{ padding: '0.35rem 0.8rem', borderRadius: '50px', border: '1px solid #bfdbfe', background: '#ffffff', color: 'var(--accent-blue)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}>
+              <button key={i} type="button" onClick={() => handleSendChatMessage(null, s)} className="ih-chip"
+                style={{ padding: '0.42rem 0.9rem', borderRadius: '50px', border: '1px solid #2563eb', background: '#2563eb', color: '#ffffff', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 6px rgba(37,99,235,0.2)' }}>
                 {s}
               </button>
             ))}
           </div>
         )}
         {msg.cards && msg.cards.map((card, i) => (
-          <div key={i} onClick={() => handleChatOption({ action: 'apply', section: card.section, payload: card.payload })}
-            style={{ border: '1.5px solid #bfdbfe', borderRadius: '12px', background: '#ffffff', padding: '0.6rem 0.75rem', cursor: 'pointer', boxShadow: '0 1px 4px rgba(37,99,235,0.06)' }}>
+          <div key={i} onClick={() => handleChatOption({ action: 'apply', section: card.section, payload: card.payload })} className="ih-card"
+            style={{ border: '1px solid #dbe6fb', borderRadius: '14px', background: '#ffffff', padding: '0.7rem 0.85rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(15,23,42,0.05)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.3rem' }}>
               <SparklesIcon style={{ width: '0.8rem', height: '0.8rem', color: 'var(--accent-blue)' }} />
               <span style={{ fontWeight: 750, fontSize: '0.74rem', color: 'var(--text-dark)' }}>{card.title}</span>
@@ -2530,8 +2675,8 @@ ${candidateName}`;
         {msg.options && (
           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
             {msg.options.map((opt, i) => (
-              <button key={i} type="button" onClick={() => handleChatOption(opt)}
-                style={{ padding: '0.35rem 0.8rem', borderRadius: '50px', border: '1px solid #bfdbfe', background: '#eff6ff', color: 'var(--accent-blue)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>
+              <button key={i} type="button" onClick={() => handleChatOption(opt)} className="ih-chip"
+                style={{ padding: '0.42rem 0.9rem', borderRadius: '50px', border: '1px solid #cdddf9', background: '#eff6ff', color: 'var(--accent-blue)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>
                 {opt.label}
               </button>
             ))}
@@ -2961,6 +3106,8 @@ ${candidateName}`;
   const historyMessages = chatMessages.length > 5 ? chatMessages.slice(0, -4) : [];
   const currentMessages = chatMessages.length > 5 ? chatMessages.slice(-4) : chatMessages;
   const lastMessage = chatMessages[chatMessages.length - 1];
+  // Jobs shown under the "Matching Jobs" tab — role-matched recommendations, else a general slice
+  const jobMatches = customRecommendations.length > 0 ? customRecommendations : jobs.slice(0, 8);
 
   const renderChatHistoryBlock = () => (
     historyMessages.length > 0 && (
@@ -3358,30 +3505,52 @@ ${candidateName}`;
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.65rem',
+                gap: '0.7rem',
                 padding: '0.85rem 1.25rem',
                 borderBottom: '1px solid var(--border-color)',
-                backgroundColor: '#ffffff' // white header background
+                background: 'linear-gradient(180deg, #ffffff, #fbfcfe)',
+                boxShadow: '0 1px 2px rgba(15,23,42,0.03)'
               }}>
-                <div style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg viewBox="0 0 24 24" fill="white" style={{ width: '0.9rem', height: '0.9rem' }}>
+                <div className="ih-chat-avatar" style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #2563eb, #4f8bff)', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg viewBox="0 0 24 24" fill="white" style={{ width: '1.05rem', height: '1.05rem' }}>
                     <path d="M12 2L14.3 7.7L20 10L14.3 12.3L12 18L9.7 12.3L4 10L9.7 7.7L12 2Z" />
                     <path d="M19 4L20 6.5L22.5 7.5L20 8.5L19 11L18 8.5L15.5 7.5L18 6.5L19 4Z" />
                     <path d="M6 14L6.8 16L8.8 16.8L6.8 17.6L6 19.6L5.2 17.6L3.2 16.8L5.2 16L6 14Z" />
                   </svg>
                 </div>
                 <div>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: '#1e293b' }}>Intelli Hire AI</p>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: '#0f172a', letterSpacing: '-0.01em' }}>IntelliHire AI</p>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '1px', fontSize: '0.68rem', color: 'var(--text-gray)', fontWeight: 500 }}>
+                    <span className="ih-status-dot" /> CV Assistant · Online
+                  </span>
                 </div>
-                <button onClick={() => setShowUploadModal(true)} title="Upload CV"
-                  style={{ marginLeft: 'auto', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: '50px', padding: '0.35rem 0.85rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.75rem', height: '0.75rem', strokeWidth: 2.5 }}>
+                <button onClick={() => setShowUploadModal(true)} title="Upload CV" className="ih-upload-btn"
+                  style={{ marginLeft: 'auto', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: '50px', padding: '0.42rem 0.9rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.8rem', height: '0.8rem', strokeWidth: 2.5 }}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                   Upload CV
                 </button>
               </div>
 
+              {/* Tab bar — AI Assistant | Matching Jobs */}
+              <div style={{ display: 'flex', gap: '0.5rem', padding: '0 1.25rem', borderBottom: '1px solid var(--border-color)', backgroundColor: '#ffffff', flexShrink: 0 }}>
+                {[
+                  { key: 'assistant', label: 'AI Assistant' },
+                  { key: 'jobs', label: `Matching Jobs${jobMatches.length ? ` (${jobMatches.length})` : ''}` },
+                ].map((tab) => {
+                  const active = chatTab === tab.key;
+                  return (
+                    <button key={tab.key} type="button" onClick={() => setChatTab(tab.key)} className="ih-tab"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.75rem 0.85rem', borderRadius: '8px 8px 0 0', fontSize: '0.8rem', fontWeight: active ? 700 : 500, color: active ? 'var(--accent-blue)' : 'var(--text-gray)', borderBottom: active ? '2.5px solid var(--accent-blue)' : '2.5px solid transparent', marginBottom: '-1px', letterSpacing: '-0.01em' }}>
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {chatTab === 'assistant' ? (
+              <>
               {/* Section selector / Quick navigation */}
               <div style={{
                 display: 'flex',
@@ -3422,21 +3591,22 @@ ${candidateName}`;
               </div>
 
               {/* Messages area — dimmed collapsible history above the current conversation */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', backgroundColor: '#f6f8fb' }}>
+              <div className="ih-msgs" style={{ flex: 1, overflowY: 'auto', padding: '1.35rem', margin: '0.75rem', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'linear-gradient(180deg, #f7f9fc, #f2f5fa)', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
                 {renderChatHistoryBlock()}
                 {currentMessages.map((msg) => (
-                  <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start', gap: '0.4rem' }}>
+                  <div key={msg.id} className="ih-msg-row" style={{ display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start', gap: '0.4rem' }}>
                     <div style={{
-                      maxWidth: '82%',
-                      padding: '0.75rem 1rem',
-                      borderRadius: msg.sender === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                      maxWidth: '84%',
+                      padding: '0.8rem 1.05rem',
+                      borderRadius: msg.sender === 'user' ? '18px 18px 5px 18px' : '18px 18px 18px 5px',
                       background: msg.sender === 'user' ? 'linear-gradient(135deg, #2563eb, #3b82f6)' : '#ffffff',
                       color: msg.sender === 'user' ? '#ffffff' : '#1e293b',
-                      border: msg.sender === 'user' ? 'none' : '1px solid #e8edf4',
-                      fontSize: '0.8rem',
-                      lineHeight: '1.5',
+                      border: msg.sender === 'user' ? 'none' : '1px solid #e9eef5',
+                      fontSize: '0.82rem',
+                      lineHeight: '1.55',
+                      letterSpacing: '-0.005em',
                       fontWeight: msg.sender === 'user' ? 500 : 400,
-                      boxShadow: msg.sender === 'user' ? '0 4px 12px rgba(37,99,235,0.18)' : '0 1px 4px rgba(15,23,42,0.05)',
+                      boxShadow: msg.sender === 'user' ? '0 6px 18px rgba(37,99,235,0.24)' : '0 2px 8px rgba(15,23,42,0.06)',
                     }}>
                       {msg.text.split('\n').map((line, lIdx) => (
                         <p key={lIdx} style={{ margin: 0, marginBottom: lIdx < msg.text.split('\n').length - 1 ? '0.5rem' : 0 }}>
@@ -3467,19 +3637,18 @@ ${candidateName}`;
 
               {/* Composer — visually separated from the message stream */}
               <div style={{ padding: '0.9rem 1.25rem 1.1rem 1.25rem', backgroundColor: '#ffffff', borderTop: '1px solid var(--border-color)', boxShadow: '0 -6px 16px rgba(15, 23, 42, 0.04)', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                <form onSubmit={handleSendChatMessage} style={{
+                <form onSubmit={handleSendChatMessage} className="ih-composer" style={{
                   background: '#ffffff',
-                  border: '1.5px solid #cbd5e1',
-                  borderRadius: '16px',
-                  padding: '0.6rem 0.85rem',
+                  border: '1.5px solid #dde3ec',
+                  borderRadius: '18px',
+                  padding: '0.65rem 0.9rem',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.4rem',
-                  boxShadow: '0 4px 14px rgba(37,99,235,0.03)',
-                  transition: 'border-color 0.2s'
+                  boxShadow: '0 2px 10px rgba(15,23,42,0.04)'
                 }}
                 onFocusCapture={e => e.currentTarget.style.borderColor = 'var(--accent-blue)'}
-                onBlurCapture={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+                onBlurCapture={e => e.currentTarget.style.borderColor = '#dde3ec'}
                 >
                   <textarea
                     value={chatInput}
@@ -3508,10 +3677,10 @@ ${candidateName}`;
                       Try: "change name to John" · "change email..."
                     </span>
                     <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                      <button type="button" onClick={handleSpeechToText} title={isListening ? 'Stop listening' : 'Speak'}
+                      <button type="button" onClick={handleSpeechToText} title={isListening ? 'Stop listening' : 'Speak'} className="ih-mic-btn"
                         style={{
-                          width: '32px',
-                          height: '32px',
+                          width: '34px',
+                          height: '34px',
                           borderRadius: '50%',
                           border: 'none',
                           background: isListening ? '#fee2e2' : '#f1f5f9',
@@ -3520,28 +3689,26 @@ ${candidateName}`;
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          transition: 'all 0.2s'
                         }}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.9rem', height: '0.9rem', strokeWidth: 2.2 }}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                         </svg>
                       </button>
                       <button type="submit" title="Send"
-                        disabled={isOptimizing}
+                        disabled={isOptimizing} className="ih-send-btn"
                         style={{
-                          width: '32px',
-                          height: '32px',
+                          width: '34px',
+                          height: '34px',
                           borderRadius: '50%',
                           border: 'none',
-                          background: 'var(--accent-blue)',
+                          background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
                           color: '#fff',
                           opacity: isOptimizing ? 0.5 : 1,
                           cursor: isOptimizing ? 'not-allowed' : 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          boxShadow: '0 2px 6px rgba(37,99,235,0.2)',
-                          transition: 'all 0.2s'
+                          boxShadow: '0 3px 10px rgba(37,99,235,0.28)',
                         }}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.9rem', height: '0.9rem', strokeWidth: 2.5 }}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
@@ -3551,6 +3718,35 @@ ${candidateName}`;
                   </div>
                 </form>
               </div>
+              </>
+              ) : (
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.7rem', backgroundColor: '#f6f8fb' }}>
+                  {jobMatches.length === 0 ? (
+                    <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', maxWidth: '240px', lineHeight: 1.5 }}>
+                      No matching jobs yet — pick a role above or upload your CV to see roles you can apply to.
+                    </div>
+                  ) : jobMatches.map((job) => (
+                    <div key={job.id} style={{ border: '1px solid var(--border-color)', borderRadius: '14px', background: '#ffffff', padding: '0.85rem 1rem', boxShadow: '0 1px 4px rgba(15,23,42,0.04)' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ margin: 0, fontWeight: 750, fontSize: '0.82rem', color: 'var(--text-dark)' }}>{job.title}</p>
+                          <p style={{ margin: '0.15rem 0 0', fontSize: '0.72rem', color: 'var(--text-gray)' }}>{job.company} · {job.location}</p>
+                        </div>
+                        {job.salary_range && (
+                          <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '0.64rem', fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '50px', padding: '0.15rem 0.55rem', whiteSpace: 'nowrap' }}>{job.salary_range}</span>
+                        )}
+                      </div>
+                      <button type="button" onClick={() => handleEasyApply(job)}
+                        style={{ marginTop: '0.7rem', width: '100%', padding: '0.5rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: '#fff', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', boxShadow: '0 2px 8px rgba(37,99,235,0.2)' }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.85rem', height: '0.85rem', strokeWidth: 2 }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Apply Now
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>
