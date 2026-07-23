@@ -1475,7 +1475,8 @@ export default function Home() {
     if (opt.action === 'own') {
       if (opt.section === 'projects') {
         pushAiMessage({
-          text: '**Select a project category below or enter your project details:**',
+          text: '**Add your project details**',
+          hint: 'Tap a project category button below to auto-fill, or enter custom details',
           projectForm: true,
         });
         return;
@@ -2882,7 +2883,7 @@ ${candidateName}`;
             advanceGuided('projects');
           }} style={formCardStyle}>
             <div style={{ marginBottom: '0.65rem' }}>
-              <span style={formLabelStyle}>Select Project Category Suggestion</span>
+              <span style={formLabelStyle}>Project Categories — tap to auto-fill title & tech stack</span>
               <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
                 {[
                   { name: '🛒 E-commerce', title: 'ShopMart E-Commerce Platform', tech: 'React.js, Node.js, Express, MongoDB, Tailwind CSS' },
