@@ -1191,10 +1191,17 @@ export default function Home() {
 
     if (section === 'projects') {
       pushAiMessage({
-        text: `${intro} — **Add your project details below:**`,
-        hint: 'Tap a category button inside the form to auto-fill, or type custom project details',
-        projectForm: true,
-        projectDefaults: { category: 'Projects', title: '', tech: '', bullets: [] },
+        text: `${intro} — **Select a project category below, or tap "Type My Own Custom Project":**`,
+        options: [
+          { label: '🛒 E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
+          { label: '💼 CRM / ERP System', action: 'proj-category', category: 'crm', section: 'projects' },
+          { label: '🤖 AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
+          { label: '📊 SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
+          { label: '💻 Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
+          { label: '📱 Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
+          { label: '✏️ Type My Own Custom Project', action: 'own', section: 'projects' },
+          { label: 'Skip Projects', action: 'skip', section: 'projects' },
+        ],
       });
       return;
     }
