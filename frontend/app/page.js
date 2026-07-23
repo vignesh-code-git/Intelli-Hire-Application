@@ -1624,17 +1624,22 @@ export default function Home() {
       } else {
         const val = userText.toUpperCase();
         setCvDraftData(prev => ({ ...prev, name: val }));
+        const curPos = cvDraftData?.position || 'MERN Stack Developer';
         replyText = "**Confirm your target job role**";
-        replyHint = 'Pick a job position below, or type your own';
-        replySuggestions = ['Frontend Developer', 'MERN Stack Developer', 'Backend Engineer', 'Full Stack Developer', 'Data Analyst', 'DevOps Engineer', 'Mobile App Developer'];
+        replyHint = 'Tap to confirm, choose below, or type your own';
+        const defaultOptions = ['MERN Stack Developer', 'Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 'Data Analyst', 'DevOps Engineer'];
+        replySuggestions = curPos ? [`Keep "${curPos}"`, ...defaultOptions.filter(o => o.toLowerCase() !== curPos.toLowerCase())] : defaultOptions;
         setHeaderQuestionIdx(1);
       }
     } else if (headerQuestionIdx === 1) {
-      generateRoleCv(userText);
+      const posToSet = (userText.startsWith('Keep "') && userText.endsWith('"'))
+        ? userText.slice(6, -1)
+        : userText;
+      setCvDraftData(prev => ({ ...prev, position: posToSet }));
       replyText = "**Add your key skills**";
       replyHint = skillsHint;
       replyKeySkillsPicker = true;
-      replySkillPool = keySkillPool(userText);
+      replySkillPool = keySkillPool(posToSet);
       setKeySkills([]);
       setHeaderQuestionIdx(2);
     } else if (headerQuestionIdx === 2) {
