@@ -1862,3 +1862,21 @@ img, svg, video { max-width: 100%; }
   .app-nav-btn { font-size: 0.68rem !important; padding: 0.38rem 0.6rem !important; }
   .wp-cv-col { padding: 1rem 0.85rem !important; }
 }
+
+/* ── Flat buttons: remove all drop shadows from buttons ── */
+button { box-shadow: none !important; }
+
+/* ── Chat composer / input area responsive ── */
+@media (max-width: 640px) {
+  .ih-composer { gap: 0.4rem !important; }
+  .wp-upload-btn { padding: 0 !important; width: 48px !important; justify-content: center !important; }
+  .wp-upload-text { display: none !important; }
+  .ih-mic-btn, .ih-send-btn { width: 48px !important; height: 48px !important; }
+  .ih-composer textarea { min-height: 48px !important; font-size: 0.9rem !important; padding: 0.7rem 0.85rem !important; }
+  /* Chat message bubbles use a bit more width on narrow screens */
+  .ih-msg-row > div { max-width: 96% !important; }
+}
+@media (max-width: 400px) {
+  .wp-upload-btn { width: 44px !important; }
+  .ih-mic-btn, .ih-send-btn { width: 44px !important; height: 44px !important; }
+}
