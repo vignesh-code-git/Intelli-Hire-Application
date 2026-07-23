@@ -940,15 +940,47 @@ export default function Home() {
   const dropdownRef = useRef(null);
   const [currentRoute, setCurrentRoute] = useState('home'); // 'home' | 'workplace' | 'joblists'
 
+  const ROUTE_PATHS = {
+    home: '/',
+    workplace: '/intellihire-work-place',
+    joblists: '/joblists'
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.includes('intellihire-work-place')) {
+        setCurrentRoute('workplace');
+        setIsInitialState(false);
+        setCvCompleted(false);
+      } else if (path.includes('joblists')) {
+        if (cvCompleted) {
+          setCurrentRoute('joblists');
+          setIsInitialState(false);
+          setCvCompleted(true);
+        } else {
+          window.history.replaceState(null, '', '/intellihire-work-place');
+          setCurrentRoute('workplace');
+          setIsInitialState(false);
+          setCvCompleted(false);
+        }
+      } else {
+        setCurrentRoute('home');
+        setIsInitialState(true);
+        setCvCompleted(false);
+      }
+    }
+  }, []);
+
   const navigateToRoute = (routeKey) => {
     if (routeKey === 'joblists' && !cvCompleted) {
       alert("Please complete your CV in IntelliHire Workplace first to unlock Job Listings!");
       return;
     }
     setCurrentRoute(routeKey);
+    const targetPath = ROUTE_PATHS[routeKey] || '/';
     if (typeof window !== 'undefined') {
-      const targetHash = routeKey === 'workplace' ? '#/intellihire-work-place' : routeKey === 'joblists' ? '#/joblists' : '#/';
-      window.history.replaceState(null, '', targetHash);
+      window.history.pushState(null, '', targetPath);
     }
 
     if (routeKey === 'home') {
@@ -2163,7 +2195,7 @@ export default function Home() {
     setActivePill(pill);
     setSearchQuery(pill);
     setRightPanelTab('assistant');
-    setCvCompleted(false);
+    navigateToRoute('workplace');
     setError("");
     setParsedCV(null);
     setUploadedFileName("");
