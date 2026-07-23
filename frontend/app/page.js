@@ -870,6 +870,12 @@ export default function Home() {
   };
 
 
+  // Right panel view: 'assistant' (chat) or 'jobs' (matches for the built CV)
+  const [rightPanelTab, setRightPanelTab] = useState('assistant');
+  // Once the guided build finishes, switch to the centered "finished CV" layout
+  // (CV at center, matching jobs below, floating command bar — no side chat).
+  const [cvCompleted, setCvCompleted] = useState(false);
+
   // AI Chat & Template Profile States
   const [activeProfile, setActiveProfile] = useState("python");
   const [chatMessages, setChatMessages] = useState([]);
@@ -903,6 +909,20 @@ export default function Home() {
   // "type my own data" for every portion of the CV.
   // ═══════════════════════════════════════════════════════════
   const [sectionEditFlow, setSectionEditFlow] = useState(null); // { section, stage: 'choose'|'pick'|'await-own' }
+  // Header "key skills" step — tap up to 6 technical-skill chips.
+  const KEY_SKILLS_LIMIT = 6;
+  const [keySkills, setKeySkills] = useState([]);
+  const toggleKeySkill = (skill) => {
+    setKeySkills(prev => {
+      let next;
+      if (prev.some(s => s.toLowerCase() === skill.toLowerCase())) next = prev.filter(s => s.toLowerCase() !== skill.toLowerCase());
+      else if (prev.length >= KEY_SKILLS_LIMIT) return prev;
+      else next = [...prev, skill];
+      // Live-update the CV preview on every pick
+      setCvDraftData(p => ({ ...p, skills: categorizeSkills(next.join(', ')) }));
+      return next;
+    });
+  };
   // Guided work-experience flow — asks company → title → duration, then a role-based bullet picker.
   const [expFlow, setExpFlow] = useState(null); // { stage: 'company'|'title'|'duration'|'bullets', draft, pool, chosen }
 
@@ -956,6 +976,15 @@ export default function Home() {
   const roleSkillCategories = () => {
     const role = getRoleType(cvDraftData?.position || '');
     return ROLE_SKILL_CATEGORIES[role] || Object.keys(SKILL_SUGGESTION_POOL);
+  };
+
+  // Full technical-skill pool for the header "key skills" picker — every skill
+  // across the role's relevant categories, role-recommended ones listed first.
+  const keySkillPool = (position) => {
+    const role = getRoleType(position || '');
+    const cats = ROLE_SKILL_CATEGORIES[role] || Object.keys(SKILL_SUGGESTION_POOL);
+    const all = cats.flatMap(c => SKILL_SUGGESTION_POOL[c] || []);
+    return [...new Set([...getRecommendedSkills(position), ...all])];
   };
 
   // Pool of headline-skill chips for the header form — the skills that define
@@ -1047,19 +1076,20 @@ export default function Home() {
     if (guidedRef.current && !next) {
       guidedRef.current = false;
       setHighlightedSection(null);
+      setRightPanelTab('jobs');
+      setCvCompleted(true);
       pushAiMessage({
-        text: "🎉 **Your CV is completed!** It's ready on the left.\n\n" +
+        text: "**Your CV is completed!** It's ready at the center, with jobs matching your profile listed right below it.\n\n" +
           "Want to refine anything? **Click any section on the CV** (or use the Edit Section bar) — pick new suggestions, or type your own content and I'll polish it into professional wording. ",
         options: [
-          { label: '⬇️ Download PDF', action: 'download' },
-          { label: '👁️ View CV', action: 'view' },
+          { label: 'Download PDF', action: 'download' },
         ],
       });
       return;
     }
     // Section edited outside the guided flow — confirm briefly, stay put
     if (fromSection) {
-      pushAiMessage({ text: `✅ **${SECTION_LABELS[fromSection]} updated** — it's live on your CV. Click any other section to keep refining.` });
+      pushAiMessage({ text: `**${SECTION_LABELS[fromSection]} updated** — it's live on your CV. Click any other section to keep refining.` });
     }
     setHighlightedSection(null);
   };
@@ -1090,7 +1120,7 @@ export default function Home() {
     setHeaderQuestionIdx(null);
     setExpFlow(null);
     // Interactive transition: confirm what was saved, introduce what comes next
-    const savedNote = savedFrom ? `✅ **${SECTION_LABELS[savedFrom]} added** — it's live on your CV.\n\n` : '';
+    const savedNote = savedFrom ? `**${SECTION_LABELS[savedFrom]} added** — it's live on your CV.\n\n` : '';
     const intro = `${savedNote}**${SECTION_LABELS[section]}**`;
 
     if (section === 'header') {
@@ -1117,7 +1147,7 @@ export default function Home() {
       pushAiMessage({
         text: `${intro} — tap chips to add or remove. The recommended set for your role is pre-selected:`,
         skillsPicker: true,
-        options: [{ label: '✓ Done — next section', action: 'section-done', section: 'skills' }],
+        options: [{ label: 'Done — next section', action: 'section-done', section: 'skills' }],
       });
       return;
     }
@@ -1139,7 +1169,7 @@ export default function Home() {
     pushAiMessage({
       text: `${intro} — ${SECTION_QUESTIONS[section] || `tell me about your ${SECTION_LABELS[section].toLowerCase()} and I'll polish it.`}`,
       options: [
-        { label: '✨ Suggest content for me', action: 'ai-suggest', section },
+        { label: 'Suggest content for me', action: 'ai-suggest', section },
         { label: 'Skip for now', action: 'skip', section },
       ],
     });
@@ -1351,7 +1381,7 @@ export default function Home() {
     applyPayload(section, cache.cards[cache.idx].payload);
     setHighlightedSection(section);
     pushAiMessage({
-      text: `✨ Applied **${SECTION_LABELS[section]}** alternative ${cache.idx + 1} of ${cache.cards.length}, tailored to **${cvDraftData?.position || 'your role'}**. Click the icon again for another — or click the section to edit the text yourself.`,
+      text: `Applied **${SECTION_LABELS[section]}** alternative ${cache.idx + 1} of ${cache.cards.length}, tailored to **${cvDraftData?.position || 'your role'}**. Click the icon again for another — or click the section to edit the text yourself.`,
     });
   };
 
@@ -1366,6 +1396,7 @@ export default function Home() {
   const handleChatOption = async (opt) => {
     if (!opt || !opt.action) return;
     if (opt.action === 'open') { openSectionEditor(opt.section); return; }
+    if (opt.action === 'jobs') { setRightPanelTab('jobs'); return; }
     if (opt.action === 'download') { handleDownloadPdf(); return; }
     if (opt.action === 'view') {
       document.getElementById('cv-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1383,6 +1414,13 @@ export default function Home() {
       return;
     }
     if (opt.action === 'exp-done') { finishExperienceFlow(); return; }
+    if (opt.action === 'key-skills-done') {
+      const picked = keySkills.length ? keySkills : getRecommendedSkills(cvDraftData?.position || '').slice(0, KEY_SKILLS_LIMIT);
+      setCvDraftData(prev => ({ ...prev, skills: categorizeSkills(picked.join(', ')) }));
+      setHeaderQuestionIdx(3);
+      pushAiMessage({ text: '**Enter your email address**', hint: 'e.g. ravi.kumar@gmail.com' });
+      return;
+    }
     if (opt.action === 'own') {
       setSectionEditFlow({ section: opt.section, stage: 'await-own' });
       pushAiMessage({ text: `Sure — ${SECTION_QUESTIONS[opt.section] || `type your ${SECTION_LABELS[opt.section]} below and hit send.`}` });
@@ -1442,7 +1480,7 @@ export default function Home() {
       pushAiMessage({
         text: `**What did you do at ${draft.company}?**\nTap the points that fit your **${draft.position}** role (a few are pre-selected). You can also type your own to add it.`,
         expBulletPicker: true,
-        options: [{ label: '✓ Add to CV', action: 'exp-done' }],
+        options: [{ label: 'Add to CV', action: 'exp-done' }],
       });
       return;
     }
@@ -1457,7 +1495,7 @@ export default function Home() {
       pushAiMessage({
         text: `Added **"${custom}"**. Tap more points or type another — then add it to your CV.`,
         expBulletPicker: true,
-        options: [{ label: '✓ Add to CV', action: 'exp-done' }],
+        options: [{ label: 'Add to CV', action: 'exp-done' }],
       });
       return;
     }
@@ -1517,12 +1555,13 @@ export default function Home() {
   // comes with tappable suggestion chips so the user can answer with one click.
   const handleHeaderAnswer = (userText) => {
     const skip = userText.trim().toLowerCase() === 'skip';
-    const recSkills = getRecommendedSkills(cvDraftData?.position || '').slice(0, 6).join(', ');
     const cityChips = ['Bangalore, Karnataka, India', 'Kochi, Kerala, India', 'Chennai, Tamil Nadu, India', 'Hyderabad, Telangana, India', 'Remote'];
-    const skillsHint = 'Separate with commas — or tap the recommended set below';
+    const skillsHint = `Pick your skills from the list below — choose up to ${KEY_SKILLS_LIMIT}. Or type your own, comma separated.`;
     let replyText = "";
     let replyHint = null;
     let replySuggestions = null;
+    let replyKeySkillsPicker = false;
+    let replySkillPool = null;
 
     if (headerQuestionIdx === 0) {
       if (userText.includes(',')) {
@@ -1534,7 +1573,9 @@ export default function Home() {
         generateRoleCv(pos);
         replyText = "**Add your key skills**";
         replyHint = skillsHint;
-        replySuggestions = getRecommendedSkills(pos).slice(0, 6).join(', ') ? [getRecommendedSkills(pos).slice(0, 6).join(', ')] : null;
+        replyKeySkillsPicker = true;
+        replySkillPool = keySkillPool(pos);
+        setKeySkills([]);
         setHeaderQuestionIdx(2);
       } else {
         const val = userText.toUpperCase();
@@ -1543,7 +1584,9 @@ export default function Home() {
           // Role already chosen from the picker — skip the position question
           replyText = "**Add your key skills**";
           replyHint = skillsHint;
-          replySuggestions = recSkills ? [recSkills] : null;
+          replyKeySkillsPicker = true;
+          replySkillPool = keySkillPool(cvDraftData.position);
+          setKeySkills([]);
           setHeaderQuestionIdx(2);
         } else {
           replyText = "**What role are you targeting?**";
@@ -1554,10 +1597,11 @@ export default function Home() {
       }
     } else if (headerQuestionIdx === 1) {
       generateRoleCv(userText);
-      const rec = getRecommendedSkills(userText).slice(0, 6).join(', ');
       replyText = "**Add your key skills**";
       replyHint = skillsHint;
-      replySuggestions = rec ? [rec] : null;
+      replyKeySkillsPicker = true;
+      replySkillPool = keySkillPool(userText);
+      setKeySkills([]);
       setHeaderQuestionIdx(2);
     } else if (headerQuestionIdx === 2) {
       setCvDraftData(prev => ({ ...prev, skills: categorizeSkills(userText) }));
@@ -1597,7 +1641,7 @@ export default function Home() {
       openSectionEditor('summary');
       return;
     }
-    setChatMessages(prev => [...prev, { id: Date.now() + 2, sender: "ai", text: replyText, hint: replyHint || undefined, suggestions: replySuggestions || undefined }]);
+    setChatMessages(prev => [...prev, { id: Date.now() + 2, sender: "ai", text: replyText, hint: replyHint || undefined, suggestions: replySuggestions || undefined, keySkillsPicker: replyKeySkillsPicker || undefined, skillPool: replySkillPool || undefined }]);
   };
 
   // Fetch jobs from backend on component mount and handle click outside for dropdown
@@ -1688,6 +1732,8 @@ export default function Home() {
   const handlePillClick = (pill) => {
     setActivePill(pill);
     setSearchQuery(pill);
+    setRightPanelTab('assistant');
+    setCvCompleted(false);
     setError("");
     setParsedCV(null);
     setUploadedFileName("");
@@ -1740,7 +1786,7 @@ export default function Home() {
     setUploadStep('parsing');
     setIsOptimizing(true);
 
-    setChatMessages(prev => [...prev, { id: Date.now(), sender: 'user', text: `📎 Uploaded CV: ${file.name}` }]);
+    setChatMessages(prev => [...prev, { id: Date.now(), sender: 'user', text: `Uploaded CV: ${file.name}` }]);
 
     const formData = new FormData();
     formData.append('cv_file', file);
@@ -1937,13 +1983,13 @@ export default function Home() {
 
     // Download / view requests typed in chat
     if (/\b(download|export|save)\b.*\b(cv|resume|pdf)\b|\bdownload\b\s*$/.test(lowText)) {
-      pushAiMessage({ text: '⬇️ **Downloading your CV as a PDF now.** Check your browser downloads.' });
+      pushAiMessage({ text: '**Downloading your CV as a PDF now.** Check your browser downloads.' });
       handleDownloadPdf();
       return;
     }
     if (/\b(view|show|see)\b.*\b(my )?(cv|resume)\b/.test(lowText)) {
       document.getElementById('cv-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      pushAiMessage({ text: '👁️ Here it is — your CV is on the left. Click any section to edit it.' });
+      pushAiMessage({ text: 'Here it is — your CV is on the left. Click any section to edit it.' });
       return;
     }
 
@@ -2221,6 +2267,51 @@ export default function Home() {
     }, 1000);
   };
 
+  // ── Job matching for the built CV ──
+  // Maps each CV role type (from getRoleType) to job-title keywords, then
+  // scores every job by role match + overlap between CV skills and requirements.
+  const ROLE_JOB_KEYWORDS = {
+    frontend: ["frontend", "front end", "react", "angular", "vue", "ui developer"],
+    backend: ["backend", "back end", "python", "java", "node", "django", "api"],
+    fullstack: ["full stack", "fullstack", "mern", "mean", "software engineer", "web developer"],
+    data: ["data scientist", "data analyst", "data engineer", "machine learning", "ml engineer", "ai engineer", "analytics", "business analyst"],
+    devops: ["devops", "cloud", "sre", "site reliability", "platform engineer", "infrastructure", "kubernetes", "aws"],
+    mobile: ["mobile", "android", "ios", "flutter", "react native"],
+    design: ["designer", "ux", "ui/ux", "product designer"],
+    qa: ["qa", "test", "quality", "sdet", "automation"],
+  };
+
+  const getCvSkills = () => {
+    const s = cvDraftData?.skills;
+    if (!s) return [];
+    const text = typeof s === "string" ? s : Object.values(s).filter(v => typeof v === "string").join(", ");
+    return text.split(/[,•|:]/).map(x => x.trim().toLowerCase()).filter(x => x.length > 1);
+  };
+
+  const getMatchedJobs = () => {
+    // Uploaded-CV flow already gets ML-ranked recommendations from the backend
+    if (customRecommendations.length > 0) {
+      return customRecommendations.map(job => ({ job, matched: job.matching_skills || [], roleMatch: true }));
+    }
+    const position = cvDraftData?.position || activePill || "";
+    if (!position) return [];
+    const keywords = ROLE_JOB_KEYWORDS[getRoleType(position)] || [];
+    const cvSkills = getCvSkills();
+    const scored = [];
+    for (const job of jobs) {
+      const title = job.title.toLowerCase();
+      const roleMatch = keywords.some(k => title.includes(k));
+      const reqList = Array.isArray(job.requirements) ? job.requirements : String(job.requirements || "").split(",");
+      const matched = reqList.filter(r => {
+        const rl = r.toLowerCase().trim();
+        return rl && cvSkills.some(sk => rl.includes(sk) || sk.includes(rl));
+      });
+      if (roleMatch || matched.length >= 2) scored.push({ job, matched, roleMatch });
+    }
+    scored.sort((a, b) => (Number(b.roleMatch) - Number(a.roleMatch)) || (b.matched.length - a.matched.length));
+    return scored.slice(0, 15);
+  };
+
   // Filter jobs based on search query and active pill
   const getFilteredJobs = () => {
     const sourceList = customRecommendations.length > 0 ? customRecommendations : jobs;
@@ -2474,15 +2565,15 @@ ${candidateName}`;
   // Renders AI option buttons + suggestion cards attached to a chat message
   const renderMessageExtras = (msg) => {
     if (!msg.cards && !msg.options && !(msg.suggestions?.length) && !(msg.jobs?.length)
-      && !msg.headerForm && !msg.skillsPicker && !msg.experienceForm && !msg.expBulletPicker) return null;
+      && !msg.headerForm && !msg.skillsPicker && !msg.keySkillsPicker && !msg.experienceForm && !msg.expBulletPicker) return null;
 
     const formInputStyle = {
-      width: '100%', padding: '0.42rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '8px',
-      fontSize: '0.74rem', color: '#1e293b', outline: 'none', fontFamily: 'inherit', background: '#ffffff',
+      width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #cbd5e1', borderRadius: '8px',
+      fontSize: '0.9rem', color: '#1e293b', outline: 'none', fontFamily: 'inherit', background: '#ffffff',
     };
-    const formLabelStyle = { fontSize: '0.63rem', fontWeight: 800, color: 'var(--text-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.15rem', display: 'block' };
-    const formCardStyle = { border: '1.5px solid #bfdbfe', borderRadius: '12px', background: '#ffffff', padding: '0.75rem 0.85rem', boxShadow: '0 1px 4px rgba(37,99,235,0.06)' };
-    const saveBtnStyle = { padding: '0.45rem 1.1rem', borderRadius: '50px', border: 'none', background: 'var(--accent-blue)', color: '#fff', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 6px rgba(37,99,235,0.2)' };
+    const formLabelStyle = { fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem', display: 'block' };
+    const formCardStyle = { border: '1px solid #cbd5e1', borderRadius: '12px', background: '#ffffff', padding: '0.85rem 0.95rem', boxShadow: '0 1px 4px rgba(37,99,235,0.06)' };
+    const saveBtnStyle = { padding: '0.5rem 1.2rem', borderRadius: '50px', border: 'none', background: 'var(--accent-blue)', color: '#fff', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 6px rgba(37,99,235,0.2)' };
 
     let expSuggestedBullets = [];
     if (msg.experienceForm) {
@@ -2541,6 +2632,33 @@ ${candidateName}`;
             </div>
             <button type="submit" style={saveBtnStyle}>Save Header → Next</button>
           </form>
+        )}
+        {msg.keySkillsPicker && (
+          <div style={formCardStyle}>
+            <span style={formLabelStyle}>Pick your skills — tap to choose (up to {KEY_SKILLS_LIMIT}) · {keySkills.length}/{KEY_SKILLS_LIMIT}</span>
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+              {(msg.skillPool || []).map((skill) => {
+                const on = keySkills.some(s => s.toLowerCase() === skill.toLowerCase());
+                const full = !on && keySkills.length >= KEY_SKILLS_LIMIT;
+                return (
+                  <button key={skill} type="button" onClick={() => toggleKeySkill(skill)}
+                    style={{
+                      padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.82rem', fontWeight: 650,
+                      cursor: full ? 'not-allowed' : 'pointer', opacity: full ? 0.45 : 1,
+                      border: on ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                      background: on ? '#eff6ff' : '#ffffff', color: on ? '#2563eb' : '#475569', transition: 'all 0.15s',
+                    }}>
+                    {on ? '✓ ' : '+ '}{skill}
+                  </button>
+                );
+              })}
+            </div>
+            <button type="button" onClick={() => handleChatOption({ action: 'key-skills-done' })}
+              disabled={keySkills.length === 0}
+              style={{ ...saveBtnStyle, marginTop: '0.7rem', opacity: keySkills.length === 0 ? 0.5 : 1, cursor: keySkills.length === 0 ? 'not-allowed' : 'pointer' }}>
+              {keySkills.length ? `Add ${keySkills.length} skill${keySkills.length === 1 ? '' : 's'} → Next` : 'Pick at least one skill'}
+            </button>
+          </div>
         )}
         {msg.skillsPicker && (
           <div style={formCardStyle}>
@@ -2655,7 +2773,7 @@ ${candidateName}`;
           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.15rem' }}>
             {msg.suggestions.map((s, i) => (
               <button key={i} type="button" onClick={() => handleSendChatMessage(null, s)} className="ih-chip"
-                style={{ padding: '0.42rem 0.9rem', borderRadius: '50px', border: '1px solid #2563eb', background: '#2563eb', color: '#ffffff', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 6px rgba(37,99,235,0.2)' }}>
+                style={{ padding: '0.45rem 0.95rem', borderRadius: '50px', border: '1px solid #2563eb', background: '#2563eb', color: '#ffffff', fontSize: '0.86rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 6px rgba(37,99,235,0.2)' }}>
                 {s}
               </button>
             ))}
@@ -2663,20 +2781,20 @@ ${candidateName}`;
         )}
         {msg.cards && msg.cards.map((card, i) => (
           <div key={i} onClick={() => handleChatOption({ action: 'apply', section: card.section, payload: card.payload })} className="ih-card"
-            style={{ border: '1px solid #dbe6fb', borderRadius: '14px', background: '#ffffff', padding: '0.7rem 0.85rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(15,23,42,0.05)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.3rem' }}>
-              <SparklesIcon style={{ width: '0.8rem', height: '0.8rem', color: 'var(--accent-blue)' }} />
-              <span style={{ fontWeight: 750, fontSize: '0.74rem', color: 'var(--text-dark)' }}>{card.title}</span>
-              <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '0.64rem', fontWeight: 800, color: '#ffffff', background: 'var(--accent-blue)', borderRadius: '50px', padding: '0.18rem 0.65rem', letterSpacing: '0.04em' }}>APPLY</span>
+            style={{ border: '1px solid #cbd5e1', borderRadius: '14px', background: '#ffffff', padding: '0.85rem 1rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(15,23,42,0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.4rem' }}>
+              <SparklesIcon style={{ width: '0.95rem', height: '0.95rem', color: 'var(--accent-blue)' }} />
+              <span style={{ fontWeight: 750, fontSize: '0.9rem', color: 'var(--text-dark)' }}>{card.title}</span>
+              <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '0.7rem', fontWeight: 800, color: '#ffffff', background: 'var(--accent-blue)', borderRadius: '50px', padding: '0.2rem 0.7rem', letterSpacing: '0.04em' }}>APPLY</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-gray)', lineHeight: 1.45, whiteSpace: 'pre-line', maxHeight: '86px', overflow: 'hidden' }}>{card.preview}</p>
+            <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-gray)', lineHeight: 1.5, whiteSpace: 'pre-line', maxHeight: '104px', overflow: 'hidden' }}>{card.preview}</p>
           </div>
         ))}
         {msg.options && (
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
             {msg.options.map((opt, i) => (
               <button key={i} type="button" onClick={() => handleChatOption(opt)} className="ih-chip"
-                style={{ padding: '0.42rem 0.9rem', borderRadius: '50px', border: '1px solid #cdddf9', background: '#eff6ff', color: 'var(--accent-blue)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>
+                style={{ padding: '0.45rem 0.95rem', borderRadius: '50px', border: '1px solid #cbd5e1', background: '#eff6ff', color: 'var(--accent-blue)', fontSize: '0.86rem', fontWeight: 700, cursor: 'pointer' }}>
                 {opt.label}
               </button>
             ))}
@@ -3082,24 +3200,23 @@ ${candidateName}`;
   };
 
   // Categories list matching mockup
+  // Role catalogue for the Indian tech job market.
+  // getRoleType() in aiDataset.js maps each of these to a CV content bank.
   const categories = [
-    "Frontend Developer",
-    "Backend Engineer",
-    "Data Analyst",
-    "Product Manager",
-    "Full Stack Developer",
-    "UX Designer",
-    "DevOps Engineer",
-    "Cloud Architect",
-    "Machine Learning",
-    "Mobile Developer",
-    "Security Analyst",
-    "QA Engineer",
-    "Data Scientist",
-    "Database Engineer"
+    "Full Stack Developer", "MERN Stack Developer", "MEAN Stack Developer",
+    "Frontend Developer", "Backend Engineer", "Java Developer",
+    "Python Developer", "Node.js Developer", "React Developer",
+    "AI Engineer", "Machine Learning Engineer", "Data Scientist",
+    "Data Analyst", "Data Engineer", "Business Analyst",
+    "DevOps Engineer", "Cloud Engineer", "Cloud Architect",
+    "Site Reliability Engineer", "Database Engineer",
+    "Mobile Developer", "Android Developer", "Flutter Developer", "iOS Developer",
+    "Product Manager", "UX Designer", "QA Engineer",
+    "Software Tester", "Security Analyst",
   ];
 
   const isInitialState = !activePill && !searchQuery && !isOptimizing && !customOptimizationResult && !isAnalyzed && !hasUploadedCV;
+  const matchedJobs = isInitialState ? [] : getMatchedJobs();
 
   // Chat vs history: older messages are tucked into a collapsible, dimmed history
   // block; only the current conversation (last few messages) renders full-contrast.
@@ -3146,6 +3263,89 @@ ${candidateName}`;
     )
   );
 
+  // Reusable search bar + role picker, shown at the top of the CV preview column.
+  const searchRolesBar = (
+    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '1.25rem' }}>
+      <div className="search-bar-container" ref={dropdownRef} style={{
+        width: '100%', borderRadius: '50px', padding: '0 4px 0 1.1rem', border: '1.5px solid #cbd5e1',
+        height: '40px', display: 'flex', alignItems: 'center', backgroundColor: '#ffffff', transition: 'border-color 0.2s', position: 'relative',
+      }}
+      onFocusCapture={e => e.currentTarget.style.borderColor = 'var(--accent-blue)'}
+      onBlurCapture={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1.1rem', height: '1.1rem', color: 'var(--text-muted)', marginRight: '0.65rem', flexShrink: 0 }}>
+          <circle cx="11" cy="11" r="8" strokeWidth="2.5" />
+          <path d="m21 21-4.3-4.3" strokeWidth="2.5" strokeLinecap="round" />
+        </svg>
+        <input type="text" className="search-input" placeholder="Search roles, skills, or certifications..." value={searchQuery}
+          onChange={(e) => { setSearchQuery(e.target.value); setShowSearchDropdown(true); }}
+          onFocus={() => setShowSearchDropdown(true)}
+          style={{ border: 'none', outline: 'none', fontSize: '0.85rem', flexGrow: 1, height: '100%', padding: 0, lineHeight: 'normal' }} />
+        <button className="search-button" style={{ height: '32px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: 700, padding: '0 1.1rem', background: 'var(--accent-blue)', color: '#fff', border: 'none', cursor: 'pointer' }}>Search</button>
+        {showSearchDropdown && searchQuery.trim() && (
+          <div className="search-dropdown" style={{ borderRadius: '16px', marginTop: '0.5rem', border: '1px solid var(--border-color)', boxShadow: '0 10px 25px rgba(0,0,0,0.08)', zIndex: 100 }}>
+            {jobs.filter(j => j.title.toLowerCase().includes(searchQuery.toLowerCase()) || j.company.toLowerCase().includes(searchQuery.toLowerCase())).map((job) => (
+              <div key={job.id} className="search-dropdown-item" onClick={() => { setSearchQuery(job.title); setShowSearchDropdown(false); }} style={{ padding: '0.75rem 1rem' }}>
+                <span className="search-dropdown-item-title" style={{ fontWeight: 600 }}>{job.title}</span>
+                <span className="search-dropdown-item-company" style={{ fontSize: '0.75rem' }}>{job.company} • {job.location}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <button type="button" onClick={() => setShowRoleDropdown(v => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Switch Role
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.75rem', height: '0.75rem', strokeWidth: 3, transform: showRoleDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {showRoleDropdown && (
+        <div className="pill-list" style={{ maxHeight: 'none', overflowX: 'auto', display: 'flex', gap: '0.5rem', flexWrap: 'nowrap', paddingBottom: '0.25rem', scrollbarWidth: 'none' }}>
+          {categories.map((pill) => (
+            <span key={pill} className={`pill-tag ${activePill === pill ? 'active' : ''}`} onClick={() => { setShowRoleDropdown(false); handlePillClick(pill); }} style={{ fontSize: '0.75rem', padding: '0.35rem 0.85rem', whiteSpace: 'nowrap' }}>{pill}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // Floating command bar + latest AI reply popup, used in the finished-CV layout.
+  const lastAiReply = [...chatMessages].reverse().find(m => m.sender === 'ai');
+  const floatingComposer = (
+    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 1rem 1.5rem 1rem', pointerEvents: 'none', zIndex: 50 }}>
+      {lastAiReply && (
+        <div style={{ pointerEvents: 'auto', maxWidth: '640px', width: '100%', marginBottom: '0.75rem', display: 'flex', alignItems: 'flex-start', gap: '0.6rem', background: '#ffffff', border: '1px solid #e5eaf1', borderRadius: '16px', padding: '0.85rem 1.1rem', boxShadow: '0 12px 32px rgba(15,23,42,0.14)' }}>
+          <div style={{ flexShrink: 0, width: '30px', height: '30px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,0.25)' }}>
+            <svg viewBox="0 0 24 24" fill="white" style={{ width: '0.9rem', height: '0.9rem' }}><path d="M12 2L14.3 7.7L20 10L14.3 12.3L12 18L9.7 12.3L4 10L9.7 7.7L12 2Z" /></svg>
+          </div>
+          <div style={{ fontSize: '0.9rem', lineHeight: 1.55, color: '#1e293b' }}>
+            {lastAiReply.text.split('\n').map((line, lIdx) => (
+              <p key={lIdx} style={{ margin: 0, marginBottom: lIdx < lastAiReply.text.split('\n').length - 1 ? '0.4rem' : 0 }}>
+                {line.split('**').map((part, i) => i % 2 === 1 ? <strong key={i} style={{ fontWeight: 700 }}>{part}</strong> : part)}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+      <form onSubmit={handleSendChatMessage} style={{ pointerEvents: 'auto', maxWidth: '640px', width: '100%', display: 'flex', alignItems: 'flex-end', gap: '0.55rem', background: '#ffffff', border: '1px solid #e5eaf1', borderRadius: '20px', padding: '0.6rem 0.6rem 0.6rem 0.75rem', boxShadow: '0 12px 36px rgba(15,23,42,0.16)' }}>
+        <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChatMessage(e); } }}
+          placeholder="Ask AI to refine your CV — e.g. “change summary…”, “add a project…”" rows={1}
+          style={{ flex: 1, border: 'none', outline: 'none', resize: 'none', padding: '0.5rem 0.4rem', fontSize: '0.95rem', color: '#0f172a', fontFamily: 'inherit', lineHeight: '1.5', minHeight: '40px', maxHeight: '140px', backgroundColor: 'transparent' }}
+        />
+        <button type="button" onClick={handleSpeechToText} title={isListening ? 'Stop listening' : 'Speak'}
+          style={{ flexShrink: 0, width: '42px', height: '42px', borderRadius: '12px', border: '1px solid ' + (isListening ? '#fecaca' : 'var(--border-color)'), background: isListening ? '#fee2e2' : '#f8fafc', color: isListening ? '#ef4444' : '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1.1rem', height: '1.1rem', strokeWidth: 2.2 }}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+        </button>
+        <button type="submit" title="Send" disabled={isOptimizing}
+          style={{ flexShrink: 0, width: '42px', height: '42px', borderRadius: '12px', border: 'none', background: 'var(--accent-blue)', color: '#fff', opacity: isOptimizing ? 0.5 : 1, cursor: isOptimizing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 8px rgba(37,99,235,0.28)' }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1.1rem', height: '1.1rem', strokeWidth: 2.5 }}><path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+        </button>
+      </form>
+    </div>
+  );
+
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-body)", fontFamily: "var(--font-sans)" }}>
 
@@ -3174,7 +3374,7 @@ ${candidateName}`;
             Discover top opportunities tailored to your skills. Pick a role below to instantly generate a professional AI CV — then personalise it with the chat.
           </p>
 
-          {/* Platform stats bar */}
+          {/* Platform stats cards */}
           <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center", margin: "0.25rem 0 1.75rem 0" }}>
             {[
               { value: platformStats ? `${platformStats.total_jobs}+` : "190+", label: "Live Jobs" },
@@ -3195,11 +3395,15 @@ ${candidateName}`;
           </div>
 
           {/* Suggested roles — always visible, pick one to start building */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem", marginBottom: "2rem" }}>
-            <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 800, color: "var(--text-gray)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              🎯 Pick a role to build your AI CV
-            </p>
-            <div className="pill-list" style={{ maxHeight: "none", justifyContent: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.9rem", marginBottom: "2rem", width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem", width: "100%", maxWidth: "560px" }}>
+              <span style={{ flex: 1, height: "1px", background: "var(--border-color)" }} />
+              <p style={{ margin: 0, fontSize: "0.72rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.12em", whiteSpace: "nowrap" }}>
+                Pick a role to build your AI CV
+              </p>
+              <span style={{ flex: 1, height: "1px", background: "var(--border-color)" }} />
+            </div>
+            <div className="pill-list" style={{ maxHeight: "none", justifyContent: "center", maxWidth: "1000px" }}>
               {categories.map((pill) => (
                 <span
                   key={pill}
@@ -3217,13 +3421,13 @@ ${candidateName}`;
         </div>
       )}
 
-      {/* ── ACTIVE STATE: two-column layout after pill click ── */}
-      {!isInitialState && (
+      {/* ── ACTIVE STATE: two-column building layout (chat still open) ── */}
+      {!isInitialState && !cvCompleted && (
         <div style={{ display: "flex", minHeight: "100vh", maxHeight: "100vh", overflow: "hidden" }}>
 
           {/* ── LEFT COLUMN: Full-height CV ── */}
-          <div style={{
-            width: "55%",
+          <div className="cv-scroll" style={{
+            width: "52%",
             height: "100vh",
             overflowY: "auto",
             borderRight: "1px solid var(--border-color)",
@@ -3240,6 +3444,9 @@ ${candidateName}`;
               <span style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--text-dark)" }}>IntelliHire Workspace</span>
             </div>
 
+            {/* Search + role picker moved into the CV preview column */}
+            {searchRolesBar}
+
             {/* Upload success banner */}
             {uploadedFileName && !isOptimizing && uploadStep !== 'error' && (
               <div className="upload-success-banner">
@@ -3249,12 +3456,12 @@ ${candidateName}`;
                   </svg>
                 </div>
                 <span className="upload-success-banner-text">
-                  📎 <strong>{uploadedFileName}</strong> — Parsed & Optimized by AI ✓
+                  <strong>{uploadedFileName}</strong> — Parsed & Optimized by AI
                 </span>
                 <button className="upload-success-banner-remove" title="Remove uploaded CV" onClick={() => {
                   setUploadedFileName(''); setUploadStep('idle'); setHasUploadedCV(false);
                   setIsAnalyzed(false); setParsedCV(null); setCustomOptimizationResult(null);
-                  setCustomRecommendations([]); setCvText(''); setActivePill(''); setSearchQuery('');
+                  setCustomRecommendations([]); setCvText(''); setActivePill(''); setSearchQuery(''); setCvCompleted(false);
                 }}>✕</button>
               </div>
             )}
@@ -3270,9 +3477,9 @@ ${candidateName}`;
             {isOptimizing && uploadStep !== 'idle' && (
               <div className="upload-progress-container">
                 <p style={{ fontWeight: '700', color: 'var(--text-dark)', fontSize: '1rem' }}>
-                  {uploadStep === 'parsing' && '🔍 Parsing your CV...'}
-                  {uploadStep === 'optimizing' && '✨ AI is optimizing for ATS...'}
-                  {uploadStep === 'recommending' && '🎯 Finding matching jobs...'}
+                  {uploadStep === 'parsing' && 'Parsing your CV...'}
+                  {uploadStep === 'optimizing' && 'AI is optimizing for ATS...'}
+                  {uploadStep === 'recommending' && 'Finding matching jobs...'}
                 </p>
                 <div className="upload-progress-steps">
                   <div className={`upload-step ${uploadStep === 'parsing' ? 'active' : ['optimizing','recommending','done'].includes(uploadStep) ? 'done' : ''}`}>
@@ -3306,7 +3513,7 @@ ${candidateName}`;
             {!isOptimizing && isAnalyzed && customOptimizationResult && !parsedCV && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-gray)' }}>
-                  ✨ Building your <span style={{ color: 'var(--accent-blue)' }}>{cvDraftData?.position || 'CV'}</span> — follow the chat on the right
+                  Building your <span style={{ color: 'var(--accent-blue)' }}>{cvDraftData?.position || 'CV'}</span> — follow the chat on the right
                 </span>
                 <button onClick={handleDownloadPdf} title="Download CV as PDF"
                   style={{ marginLeft: 'auto', padding: '0.6rem 1rem', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -3337,10 +3544,10 @@ ${candidateName}`;
             {!isOptimizing && isAnalyzed && customOptimizationResult && parsedCV && (
               <div className="cv-tab-switcher">
                 <button className={`cv-tab-btn ${cvViewTab === 'original' ? 'active' : ''}`} onClick={() => setCvViewTab('original')}>
-                  📄 Original CV
+                  Original CV
                 </button>
                 <button className={`cv-tab-btn ${cvViewTab === 'optimized' ? 'active' : ''}`} onClick={() => setCvViewTab('optimized')}>
-                  ✨ AI Optimized
+                  AI Optimized
                 </button>
               </div>
             )}
@@ -3365,7 +3572,7 @@ ${candidateName}`;
                         {parsedCV.education && parsedCV.education.length > 0 && (<><div className="resume-section-header"><span>Education</span></div><ul className="resume-list" style={{ listStyleType: 'none', paddingLeft: 0 }}>{parsedCV.education.map((l, i) => <li key={i}>{l}</li>)}</ul></>)}
                         {!parsedCV.summary && !parsedCV.experience?.length && (
                           <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                            <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>⚠️ Limited text extracted</p>
+                            <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Limited text extracted</p>
                             <p style={{ fontSize: '0.82rem' }}>Your PDF may be image-based or scanned. Try uploading a text-based PDF or DOCX.</p>
                           </div>
                         )}
@@ -3393,9 +3600,9 @@ ${candidateName}`;
 
           </div>
 
-          {/* ── RIGHT COLUMN: Search/Pills (top) + Claude-style AI Chat Panel (bottom) ── */}
+          {/* ── RIGHT COLUMN: AI Chat Panel ── */}
           <div style={{
-            width: '45%',
+            width: '48%',
             height: '100vh',
             display: 'flex',
             flexDirection: 'column',
@@ -3406,164 +3613,29 @@ ${candidateName}`;
             overflow: 'hidden',
           }}>
 
-            {/* ── TOP SECTION: Search + Suggested Role Pills ── */}
-            <div style={{
-              flexShrink: 0,
-              padding: '0.85rem 1.5rem',
-              backgroundColor: '#ffffff',
-              borderBottom: '1px solid var(--border-color)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              gap: '0.6rem'
-            }}>
-              {/* Search bar */}
-              <div className="search-bar-container" ref={dropdownRef} style={{
-                width: '100%',
-                borderRadius: '50px',
-                padding: '0 4px 0 1.1rem',
-                border: '1.5px solid #cbd5e1',
-                boxShadow: 'none',
-                height: '38px',
-                display: 'flex',
-                alignItems: 'center',
-                backgroundColor: '#ffffff',
-                transition: 'border-color 0.2s'
-              }}
-              onFocusCapture={e => e.currentTarget.style.borderColor = 'var(--accent-blue)'}
-              onBlurCapture={e => e.currentTarget.style.borderColor = '#cbd5e1'}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1.1rem', height: '1.1rem', color: 'var(--text-muted)', marginRight: '0.65rem', flexShrink: 0 }}>
-                  <circle cx="11" cy="11" r="8" strokeWidth="2.5" />
-                  <path d="m21 21-4.3-4.3" strokeWidth="2.5" strokeLinecap="round" />
-                </svg>
-                <input type="text" className="search-input" placeholder="Search roles, skills, or certifications..." value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setShowSearchDropdown(true); }}
-                  onFocus={() => setShowSearchDropdown(true)}
-                  style={{ border: 'none', outline: 'none', fontSize: '0.85rem', flexGrow: 1, height: '100%', padding: 0, lineHeight: 'normal' }} />
-                <button className="search-button" style={{ height: '30px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: 700, padding: '0 1.1rem', background: 'var(--accent-blue)', color: '#fff', border: 'none', cursor: 'pointer' }}>Search</button>
-                {showSearchDropdown && searchQuery.trim() && (
-                  <div className="search-dropdown" style={{ borderRadius: '16px', marginTop: '0.5rem', border: '1px solid var(--border-color)', boxShadow: '0 10px 25px rgba(0,0,0,0.08)', zIndex: 100 }}>
-                    {jobs.filter(j => j.title.toLowerCase().includes(searchQuery.toLowerCase()) || j.company.toLowerCase().includes(searchQuery.toLowerCase())).map((job) => (
-                      <div key={job.id} className="search-dropdown-item" onClick={() => { setSearchQuery(job.title); setShowSearchDropdown(false); }} style={{ padding: '0.75rem 1rem' }}>
-                        <span className="search-dropdown-item-title" style={{ fontWeight: 600 }}>{job.title}</span>
-                        <span className="search-dropdown-item-company" style={{ fontSize: '0.75rem' }}>{job.company} • {job.location}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Suggested roles — dropdown, pills shown on click */}
-              <button
-                type="button"
-                onClick={() => setShowRoleDropdown(v => !v)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.4rem', alignSelf: 'flex-start',
-                  background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
-                  fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)',
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                }}
-              >
-                Suggested Roles
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.75rem', height: '0.75rem', strokeWidth: 3, transform: showRoleDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {/* Role pills — only when the dropdown is open */}
-              {showRoleDropdown && (
-                <div className="pill-list" style={{ maxHeight: 'none', overflowX: 'auto', display: 'flex', gap: '0.5rem', flexWrap: 'nowrap', paddingBottom: '0.25rem', scrollbarWidth: 'none' }}>
-                  {categories.map((pill) => (
-                    <span key={pill} className={`pill-tag ${activePill === pill ? 'active' : ''}`} onClick={() => { setShowRoleDropdown(false); handlePillClick(pill); }} style={{
-                      fontSize: '0.75rem',
-                      padding: '0.35rem 0.85rem',
-                      borderRadius: '50px',
-                      whiteSpace: 'nowrap',
-                      cursor: 'pointer',
-                      border: activePill === pill ? '1.5px solid var(--accent-blue)' : '1px solid var(--border-color)',
-                      background: activePill === pill ? 'var(--accent-light)' : '#ffffff',
-                      color: activePill === pill ? 'var(--accent-blue)' : 'var(--text-gray)',
-                      fontWeight: activePill === pill ? 700 : 500,
-                      transition: 'all 0.2s'
-                    }}>{pill}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ── BOTTOM SECTION: AI Chat Panel (Claude-style with bluish background & border) ── */}
             <div style={{
               flex: 1,
-              backgroundColor: '#ffffff', // pure white background
-              borderTop: '1px solid var(--border-color)', // standard border
+              backgroundColor: '#ffffff',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden'
             }}>
-              {/* Chat header */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.7rem',
-                padding: '0.85rem 1.25rem',
-                borderBottom: '1px solid var(--border-color)',
-                background: 'linear-gradient(180deg, #ffffff, #fbfcfe)',
-                boxShadow: '0 1px 2px rgba(15,23,42,0.03)'
-              }}>
-                <div className="ih-chat-avatar" style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #2563eb, #4f8bff)', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg viewBox="0 0 24 24" fill="white" style={{ width: '1.05rem', height: '1.05rem' }}>
-                    <path d="M12 2L14.3 7.7L20 10L14.3 12.3L12 18L9.7 12.3L4 10L9.7 7.7L12 2Z" />
-                    <path d="M19 4L20 6.5L22.5 7.5L20 8.5L19 11L18 8.5L15.5 7.5L18 6.5L19 4Z" />
-                    <path d="M6 14L6.8 16L8.8 16.8L6.8 17.6L6 19.6L5.2 17.6L3.2 16.8L5.2 16L6 14Z" />
-                  </svg>
-                </div>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: '#0f172a', letterSpacing: '-0.01em' }}>IntelliHire AI</p>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '1px', fontSize: '0.68rem', color: 'var(--text-gray)', fontWeight: 500 }}>
-                    <span className="ih-status-dot" /> CV Assistant · Online
-                  </span>
-                </div>
-                <button onClick={() => setShowUploadModal(true)} title="Upload CV" className="ih-upload-btn"
-                  style={{ marginLeft: 'auto', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: '50px', padding: '0.42rem 0.9rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.8rem', height: '0.8rem', strokeWidth: 2.5 }}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  Upload CV
-                </button>
+              {/* Chat panel main heading */}
+              <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-color)', background: 'linear-gradient(120deg, rgba(37,99,235,0.06) 0%, rgba(59,130,246,0.02) 55%, #ffffff 100%)', flexShrink: 0 }}>
+                <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-dark)', letterSpacing: '-0.02em' }}>IntelliHire WorkPlace</h2>
               </div>
 
-              {/* Tab bar — AI Assistant | Matching Jobs */}
-              <div style={{ display: 'flex', gap: '0.5rem', padding: '0 1.25rem', borderBottom: '1px solid var(--border-color)', backgroundColor: '#ffffff', flexShrink: 0 }}>
-                {[
-                  { key: 'assistant', label: 'AI Assistant' },
-                  { key: 'jobs', label: `Matching Jobs${jobMatches.length ? ` (${jobMatches.length})` : ''}` },
-                ].map((tab) => {
-                  const active = chatTab === tab.key;
-                  return (
-                    <button key={tab.key} type="button" onClick={() => setChatTab(tab.key)} className="ih-tab"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.75rem 0.85rem', borderRadius: '8px 8px 0 0', fontSize: '0.8rem', fontWeight: active ? 700 : 500, color: active ? 'var(--accent-blue)' : 'var(--text-gray)', borderBottom: active ? '2.5px solid var(--accent-blue)' : '2.5px solid transparent', marginBottom: '-1px', letterSpacing: '-0.01em' }}>
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {chatTab === 'assistant' ? (
-              <>
-              {/* Section selector / Quick navigation */}
+              {/* Section selector / Quick navigation — all headings visible (wrap) */}
               <div style={{
                 display: 'flex',
-                gap: '0.4rem',
-                padding: '0.55rem 1.25rem',
+                gap: '0.45rem',
+                padding: '1rem 1.5rem',
                 borderBottom: '1px solid var(--border-color)',
                 backgroundColor: '#f8fafc',
-                overflowX: 'auto',
-                scrollbarWidth: 'none',
+                flexWrap: 'wrap',
                 alignItems: 'center',
                 flexShrink: 0
               }}>
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-gray)', whiteSpace: 'nowrap', marginRight: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Edit Section:</span>
                 {['header', 'summary', 'skills', 'experience', 'projects', 'education', 'certifications', 'achievements'].map((sec) => {
                   const isActive = highlightedSection === sec;
                   return (
@@ -3571,12 +3643,12 @@ ${candidateName}`;
                       key={sec}
                       onClick={() => handleSectionClick(sec)}
                       style={{
-                        padding: '0.25rem 0.65rem',
-                        borderRadius: '6px',
-                        border: isActive ? '1.5px solid var(--accent-blue)' : '1px solid #e2e8f0',
+                        padding: '0.35rem 0.8rem',
+                        borderRadius: '7px',
+                        border: isActive ? '1px solid var(--accent-blue)' : '1px solid #cbd5e1',
                         background: isActive ? 'var(--accent-light)' : '#ffffff',
                         color: isActive ? 'var(--accent-blue)' : '#475569',
-                        fontSize: '0.68rem',
+                        fontSize: '0.8rem',
                         fontWeight: 700,
                         cursor: 'pointer',
                         whiteSpace: 'nowrap',
@@ -3591,35 +3663,44 @@ ${candidateName}`;
               </div>
 
               {/* Messages area — dimmed collapsible history above the current conversation */}
-              <div className="ih-msgs" style={{ flex: 1, overflowY: 'auto', padding: '1.35rem', margin: '0.75rem', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'linear-gradient(180deg, #f7f9fc, #f2f5fa)', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
+              <div className="cv-scroll ih-msgs" style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'radial-gradient(circle at 100% 0%, rgba(37,99,235,0.05), transparent 45%), #f6f8fb' }}>
                 {renderChatHistoryBlock()}
                 {currentMessages.map((msg) => (
-                  <div key={msg.id} className="ih-msg-row" style={{ display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start', gap: '0.4rem' }}>
-                    <div style={{
-                      maxWidth: '84%',
-                      padding: '0.8rem 1.05rem',
-                      borderRadius: msg.sender === 'user' ? '18px 18px 5px 18px' : '18px 18px 18px 5px',
-                      background: msg.sender === 'user' ? 'linear-gradient(135deg, #2563eb, #3b82f6)' : '#ffffff',
-                      color: msg.sender === 'user' ? '#ffffff' : '#1e293b',
-                      border: msg.sender === 'user' ? 'none' : '1px solid #e9eef5',
-                      fontSize: '0.82rem',
-                      lineHeight: '1.55',
-                      letterSpacing: '-0.005em',
-                      fontWeight: msg.sender === 'user' ? 500 : 400,
-                      boxShadow: msg.sender === 'user' ? '0 6px 18px rgba(37,99,235,0.24)' : '0 2px 8px rgba(15,23,42,0.06)',
-                    }}>
-                      {msg.text.split('\n').map((line, lIdx) => (
-                        <p key={lIdx} style={{ margin: 0, marginBottom: lIdx < msg.text.split('\n').length - 1 ? '0.5rem' : 0 }}>
-                          {line.split('**').map((part, i) => i % 2 === 1 ? <strong key={i} style={{ fontWeight: 700 }}>{part}</strong> : part)}
-                        </p>
-                      ))}
+                  <div key={msg.id} className="ih-msg-row" style={{ display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start', gap: '0.45rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', maxWidth: '92%', flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row' }}>
+                      {msg.sender === 'ai' && (
+                        <div style={{ flexShrink: 0, width: '32px', height: '32px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,0.25)' }}>
+                          <svg viewBox="0 0 24 24" fill="white" style={{ width: '0.95rem', height: '0.95rem' }}>
+                            <path d="M12 2L14.3 7.7L20 10L14.3 12.3L12 18L9.7 12.3L4 10L9.7 7.7L12 2Z" />
+                          </svg>
+                        </div>
+                      )}
+                      <div style={{
+                        padding: '0.95rem 1.2rem',
+                        borderRadius: msg.sender === 'user' ? '18px 18px 5px 18px' : '18px 18px 18px 5px',
+                        background: msg.sender === 'user' ? 'linear-gradient(135deg, #2563eb, #3b82f6)' : '#ffffff',
+                        color: msg.sender === 'user' ? '#ffffff' : '#0f172a',
+                        border: msg.sender === 'user' ? '1.5px solid #1e3a8a' : '1.5px solid #334155',
+                        fontSize: '0.95rem',
+                        lineHeight: '1.6',
+                        fontWeight: msg.sender === 'user' ? 500 : 450,
+                        boxShadow: msg.sender === 'user' ? '0 4px 14px rgba(37,99,235,0.2)' : '0 2px 8px rgba(15,23,42,0.08)',
+                      }}>
+                        {msg.text.split('\n').map((line, lIdx) => (
+                          <p key={lIdx} style={{ margin: 0, marginBottom: lIdx < msg.text.split('\n').length - 1 ? '0.55rem' : 0 }}>
+                            {line.split('**').map((part, i) => i % 2 === 1 ? <strong key={i} style={{ fontWeight: 700 }}>{part}</strong> : part)}
+                          </p>
+                        ))}
+                      </div>
                     </div>
                     {msg.id > 1e12 && (
-                      <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', padding: '0 0.3rem' }}>
+                      <span style={{ fontSize: '0.64rem', color: '#94a3b8', padding: msg.sender === 'user' ? '0 0.3rem' : '0 0.3rem 0 2.5rem' }}>
                         {new Date(msg.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
-                    {msg.sender === 'ai' && msg === lastMessage && renderMessageExtras(msg)}
+                    {msg.sender === 'ai' && msg === lastMessage && (
+                      <div style={{ width: '100%', paddingLeft: '2.5rem' }}>{renderMessageExtras(msg)}</div>
+                    )}
                   </div>
                 ))}
                 {isOptimizing && uploadStep === 'idle' && (
@@ -3635,21 +3716,16 @@ ${candidateName}`;
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Composer — visually separated from the message stream */}
-              <div style={{ padding: '0.9rem 1.25rem 1.1rem 1.25rem', backgroundColor: '#ffffff', borderTop: '1px solid var(--border-color)', boxShadow: '0 -6px 16px rgba(15, 23, 42, 0.04)', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                <form onSubmit={handleSendChatMessage} className="ih-composer" style={{
-                  background: '#ffffff',
-                  border: '1.5px solid #dde3ec',
-                  borderRadius: '18px',
-                  padding: '0.65rem 0.9rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.4rem',
-                  boxShadow: '0 2px 10px rgba(15,23,42,0.04)'
-                }}
-                onFocusCapture={e => e.currentTarget.style.borderColor = 'var(--accent-blue)'}
-                onBlurCapture={e => e.currentTarget.style.borderColor = '#dde3ec'}
-                >
+              {/* Composer — transparent input with a thin border; upload/mic/send aligned to input height */}
+              <div style={{ padding: '1rem 1.5rem 1.25rem 1.5rem', backgroundColor: 'transparent', borderTop: '1px solid var(--border-color)' }}>
+                <form onSubmit={handleSendChatMessage} className="ih-composer" style={{ display: 'flex', alignItems: 'flex-end', gap: '0.55rem' }}>
+                  <button type="button" onClick={() => setShowUploadModal(true)} title="Upload CV"
+                    style={{ flexShrink: 0, height: '54px', padding: '0 0.9rem', borderRadius: '12px', border: '1px solid #cbd5e1', background: 'transparent', color: 'var(--accent-blue)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1rem', height: '1rem', strokeWidth: 2.3 }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Upload CV
+                  </button>
                   <textarea
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
@@ -3662,95 +3738,163 @@ ${candidateName}`;
                     placeholder="Type your answer or ask AI to change any section..."
                     rows={1}
                     style={{
-                      border: 'none',
+                      flex: 1,
+                      border: '1.5px solid #334155',
+                      borderRadius: '12px',
                       outline: 'none',
-                      width: '100%',
                       resize: 'none',
-                      fontSize: '0.85rem',
-                      color: '#1e293b',
+                      padding: '0.85rem 1rem',
+                      fontSize: '0.95rem',
+                      color: '#0f172a',
                       fontFamily: 'inherit',
-                      lineHeight: '1.4'
+                      lineHeight: '1.5',
+                      minHeight: '54px',
+                      maxHeight: '150px',
+                      backgroundColor: 'transparent',
+                      transition: 'border-color 0.2s, box-shadow 0.2s'
                     }}
+                    onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.14)'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = '#334155'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem' }}>
-                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                      Try: "change name to John" · "change email..."
-                    </span>
-                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                      <button type="button" onClick={handleSpeechToText} title={isListening ? 'Stop listening' : 'Speak'} className="ih-mic-btn"
-                        style={{
-                          width: '34px',
-                          height: '34px',
-                          borderRadius: '50%',
-                          border: 'none',
-                          background: isListening ? '#fee2e2' : '#f1f5f9',
-                          color: isListening ? '#ef4444' : '#64748b',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.9rem', height: '0.9rem', strokeWidth: 2.2 }}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
-                      </button>
-                      <button type="submit" title="Send"
-                        disabled={isOptimizing} className="ih-send-btn"
-                        style={{
-                          width: '34px',
-                          height: '34px',
-                          borderRadius: '50%',
-                          border: 'none',
-                          background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
-                          color: '#fff',
-                          opacity: isOptimizing ? 0.5 : 1,
-                          cursor: isOptimizing ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: '0 3px 10px rgba(37,99,235,0.28)',
-                        }}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.9rem', height: '0.9rem', strokeWidth: 2.5 }}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
+                  <button type="button" onClick={handleSpeechToText} title={isListening ? 'Stop listening' : 'Speak'} className="ih-mic-btn"
+                    style={{ flexShrink: 0, width: '54px', height: '54px', borderRadius: '12px', border: '1.5px solid ' + (isListening ? '#fecaca' : '#334155'), background: isListening ? '#fee2e2' : 'transparent', color: isListening ? '#ef4444' : '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1.2rem', height: '1.2rem', strokeWidth: 2.2 }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  </button>
+                  <button type="submit" title="Send" disabled={isOptimizing} className="ih-send-btn"
+                    style={{ flexShrink: 0, width: '54px', height: '54px', borderRadius: '12px', border: '1.5px solid #1e3a8a', background: 'var(--accent-blue)', color: '#fff', opacity: isOptimizing ? 0.5 : 1, cursor: isOptimizing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 8px rgba(37,99,235,0.28)' }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1.2rem', height: '1.2rem', strokeWidth: 2.5 }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                  </button>
                 </form>
               </div>
-              </>
-              ) : (
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.7rem', backgroundColor: '#f6f8fb' }}>
-                  {jobMatches.length === 0 ? (
-                    <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', maxWidth: '240px', lineHeight: 1.5 }}>
-                      No matching jobs yet — pick a role above or upload your CV to see roles you can apply to.
-                    </div>
-                  ) : jobMatches.map((job) => (
-                    <div key={job.id} style={{ border: '1px solid var(--border-color)', borderRadius: '14px', background: '#ffffff', padding: '0.85rem 1rem', boxShadow: '0 1px 4px rgba(15,23,42,0.04)' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-                        <div style={{ minWidth: 0 }}>
-                          <p style={{ margin: 0, fontWeight: 750, fontSize: '0.82rem', color: 'var(--text-dark)' }}>{job.title}</p>
-                          <p style={{ margin: '0.15rem 0 0', fontSize: '0.72rem', color: 'var(--text-gray)' }}>{job.company} · {job.location}</p>
-                        </div>
-                        {job.salary_range && (
-                          <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '0.64rem', fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '50px', padding: '0.15rem 0.55rem', whiteSpace: 'nowrap' }}>{job.salary_range}</span>
-                        )}
-                      </div>
-                      <button type="button" onClick={() => handleEasyApply(job)}
-                        style={{ marginTop: '0.7rem', width: '100%', padding: '0.5rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: '#fff', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', boxShadow: '0 2px 8px rgba(37,99,235,0.2)' }}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.85rem', height: '0.85rem', strokeWidth: 2 }}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        Apply Now
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+
             </div>
 
           </div>
 
+        </div>
+      )}
+
+      {/* ── FINISHED STATE: centered CV + matching jobs + floating command bar ── */}
+      {!isInitialState && cvCompleted && (
+        <div className="cv-scroll" style={{ height: '100vh', overflowY: 'auto', background: 'var(--bg-body)', paddingBottom: '11rem' }}>
+
+          {/* Slim top bar: brand + search / role switch */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--border-color)', padding: '0.9rem 1.5rem' }}>
+            <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" fill="var(--accent-blue)" style={{ width: '1.5rem', height: '1.5rem' }}>
+                  <path d="M 8 3 Q 8 12 15 12 Q 8 12 8 21 Q 8 12 1 12 Q 8 12 8 3 Z" />
+                  <path d="M 18 1 Q 18 7 23 7 Q 18 7 18 13 Q 18 7 13 7 Q 18 7 18 1 Z" />
+                  <path d="M 16 13 Q 16 17 19.5 17 Q 16 17 16 21 Q 16 17 12.5 17 Q 16 17 16 13 Z" />
+                </svg>
+                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-dark)' }}>IntelliHire</span>
+              </div>
+              <div style={{ flex: 1 }}>{searchRolesBar}</div>
+            </div>
+          </div>
+
+          <div style={{ maxWidth: '860px', margin: '0 auto', padding: '2rem 1.5rem 0 1.5rem' }}>
+
+            {/* Completion header */}
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', fontWeight: 700, color: '#047857', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '9999px', padding: '0.35rem 0.9rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.8rem', height: '0.8rem', strokeWidth: 3 }}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                CV Ready
+              </span>
+              <h1 style={{ margin: '0.8rem 0 0.3rem 0', fontSize: '1.7rem', fontWeight: 800, color: 'var(--text-dark)', letterSpacing: '-0.02em' }}>
+                Your {cvDraftData?.position || 'Professional'} CV
+              </h1>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>ATS-optimised and ready to download. Refine anything from the command bar below.</p>
+            </div>
+
+            {/* Centered CV card */}
+            <div style={{ position: 'relative', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: '18px', boxShadow: '0 12px 40px rgba(15,23,42,0.10)', padding: '2.5rem 2.75rem', marginBottom: '2.5rem' }}>
+              <button onClick={handleDownloadPdf} title="Download CV as PDF"
+                style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', padding: '0.55rem 1rem', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 3px 8px rgba(37,99,235,0.25)' }}>
+                <DownloadIcon /> PDF
+              </button>
+              <div id="cv-workspace" ref={optimizedCardRef} className="resume-card optimized" style={{ boxShadow: 'none', border: 'none', borderRadius: '0', height: 'auto', maxHeight: 'none', overflow: 'visible', padding: '0' }}>
+                {renderCVContent(cvDraftData, true)}
+              </div>
+            </div>
+
+            {/* Matching jobs */}
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginBottom: '1rem' }}>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-dark)', letterSpacing: '-0.02em' }}>Jobs Matching Your CV</h2>
+                {matchedJobs.length > 0 && (
+                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>{matchedJobs.length} openings across India</span>
+                )}
+              </div>
+
+              {matchedJobs.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)', background: '#ffffff', border: '1px dashed var(--border-color)', borderRadius: '14px' }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-gray)' }}>No matching jobs yet</p>
+                  <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.8rem' }}>Add more skills to your CV and matches will appear here.</p>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '0.9rem' }}>
+                {matchedJobs.map(({ job, matched, roleMatch }) => {
+                  const strong = roleMatch && matched.length >= 3;
+                  return (
+                    <div key={job.id} style={{ background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '1.1rem 1.2rem', boxShadow: '0 1px 4px rgba(15, 23, 42, 0.04)' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--accent-light)', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.05rem', flexShrink: 0 }}>
+                          {(job.company || 'J').charAt(0)}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-dark)', lineHeight: 1.3 }}>{job.title}</p>
+                          <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.76rem', color: 'var(--text-gray)' }}>{job.company} · {job.location}</p>
+                        </div>
+                        <span style={{
+                          flexShrink: 0, fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em',
+                          color: strong ? '#047857' : 'var(--accent-blue)',
+                          background: strong ? '#ecfdf5' : 'rgba(37, 99, 235, 0.07)',
+                          border: strong ? '1px solid #a7f3d0' : '1px solid rgba(37, 99, 235, 0.18)',
+                          borderRadius: '50px', padding: '0.25rem 0.6rem',
+                        }}>
+                          {strong ? 'Strong Match' : roleMatch ? 'Role Match' : 'Skills Match'}
+                        </span>
+                      </div>
+
+                      {Array.isArray(job.requirements) && job.requirements.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.75rem' }}>
+                          {job.requirements.slice(0, 6).map((req) => {
+                            const isMatched = matched.includes(req);
+                            return (
+                              <span key={req} style={{
+                                fontSize: '0.68rem', fontWeight: 600, padding: '0.2rem 0.55rem', borderRadius: '50px',
+                                background: isMatched ? 'var(--accent-light)' : '#f1f5f9',
+                                color: isMatched ? 'var(--accent-blue)' : 'var(--text-gray)',
+                                border: isMatched ? '1px solid rgba(37, 99, 235, 0.25)' : '1px solid transparent',
+                              }}>
+                                {req}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.8rem', paddingTop: '0.7rem', borderTop: '1px solid #f1f5f9' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>{job.salary_range || ''}</span>
+                        <button type="button" onClick={() => handleEasyApply(job)}
+                          style={{ padding: '0.4rem 0.9rem', borderRadius: '8px', border: 'none', background: 'var(--accent-blue)', color: '#fff', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                          Apply Now
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {floatingComposer}
         </div>
       )}
 
@@ -3819,7 +3963,7 @@ ${candidateName}`;
             <button className="upload-cancel-btn" onClick={() => { setShowUploadModal(false); setSelectedFile(null); }}>Cancel</button>
 
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.75rem' }}>
-              🔒 Your CV is processed locally and never stored permanently.
+              Your CV is processed locally and never stored permanently.
             </p>
           </div>
         </div>
