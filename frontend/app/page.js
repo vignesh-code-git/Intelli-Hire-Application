@@ -1192,8 +1192,8 @@ export default function Home() {
     if (section === 'projects') {
       setSectionEditFlow({ section: 'projects', stage: 'category' });
       pushAiMessage({
-        text: `${intro} — **Which project category best describes your project?**`,
-        hint: 'Tap a category to auto-load recommended title, tech stack & highlights:',
+        text: `${intro} — **Select a project category, or choose to type your own custom project:**`,
+        hint: 'Tap a category to auto-fill details, or type your own custom project:',
         options: [
           { label: '🛒 E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
           { label: '💼 CRM / ERP System', action: 'proj-category', category: 'crm', section: 'projects' },
@@ -1201,7 +1201,7 @@ export default function Home() {
           { label: '📊 SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
           { label: '💻 Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
           { label: '📱 Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
-          { label: '➕ Custom Project', action: 'proj-category', category: 'custom', section: 'projects' },
+          { label: '✏️ Type My Own Custom Project', action: 'own', section: 'projects' },
           { label: 'Skip Projects', action: 'skip', section: 'projects' },
         ],
       });
@@ -1566,19 +1566,10 @@ export default function Home() {
     }
     if (opt.action === 'own') {
       if (opt.section === 'projects') {
-        setSectionEditFlow({ section: 'projects', stage: 'category' });
         pushAiMessage({
-          text: '**Which project category best describes your project?**',
-          hint: 'Tap a category to auto-load recommended title, tech stack & highlights:',
-          options: [
-            { label: '🛒 E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
-            { label: '💼 CRM / ERP System', action: 'proj-category', category: 'crm', section: 'projects' },
-            { label: '🤖 AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
-            { label: '📊 SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
-            { label: '💻 Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
-            { label: '📱 Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
-            { label: '➕ Custom Project', action: 'proj-category', category: 'custom', section: 'projects' },
-          ],
+          text: '**Enter your custom project details below:**',
+          projectForm: true,
+          projectDefaults: { category: 'Custom Project', title: '', tech: '', bullets: [] },
         });
         return;
       }
