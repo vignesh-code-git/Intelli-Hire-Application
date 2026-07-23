@@ -947,6 +947,7 @@ export default function Home() {
   // Header "key skills" step — tap up to 6 technical-skill chips.
   const KEY_SKILLS_LIMIT = 6;
   const [keySkills, setKeySkills] = useState([]);
+  const [customProjBulletRows, setCustomProjBulletRows] = useState([0]);
   const toggleKeySkill = (skill) => {
     setKeySkills(prev => {
       let next;
@@ -1497,8 +1498,10 @@ export default function Home() {
           title: 'ShopMart E-Commerce Platform',
           tech: 'React.js, Node.js, Express, MongoDB, Tailwind CSS',
           bullets: [
-            'Built a full-stack e-commerce web application with product search and shopping cart management.',
-            'Integrated RESTful APIs and secure payment checkout gateway.',
+            'Built a full-stack e-commerce web application with product search, filtering, and shopping cart management.',
+            'Integrated RESTful APIs and secure Stripe/PayPal payment checkout gateway for seamless order processing.',
+            'Implemented user authentication, wishlist persistence, and order history tracking using JWT & MongoDB.',
+            'Optimized frontend asset loading and component state caching to achieve sub-second page rendering.'
           ]
         },
         crm: {
@@ -1506,8 +1509,10 @@ export default function Home() {
           title: 'Enterprise CRM Portal',
           tech: 'React.js, Django, PostgreSQL, REST APIs, Redis',
           bullets: [
-            'Developed lead management and client tracking dashboards for sales teams.',
-            'Automated email notifications and pipeline analytics reporting.',
+            'Developed lead management and client interaction tracking dashboards for enterprise sales teams.',
+            'Automated email notifications, deal pipeline analytics, and custom KPI summary report generation.',
+            'Built role-based access control (RBAC) ensuring secure permission boundaries across team hierarchies.',
+            'Integrated RESTful services with PostgreSQL and Redis to accelerate real-time data lookup by 40%.'
           ]
         },
         ai: {
@@ -1515,8 +1520,10 @@ export default function Home() {
           title: 'AI Resume & CV Optimizer',
           tech: 'Python, FastAPI, Next.js, PyTorch, OpenAI API',
           bullets: [
-            'Engineered an AI-driven resume builder analyzing job descriptions against candidate skills.',
-            'Implemented real-time scoring algorithms to maximize ATS match rates.',
+            'Engineered an AI-driven resume builder analyzing job descriptions against candidate skills in real-time.',
+            'Implemented scoring algorithms and NLP feature extraction to maximize ATS match rates for applicants.',
+            'Designed scalable FastAPI microservices connecting PyTorch models with a responsive Next.js frontend.',
+            'Streamlined prompt execution and response parsing, reducing AI inference latency by over 30%.'
           ]
         },
         saas: {
@@ -1524,8 +1531,10 @@ export default function Home() {
           title: 'SaaS Metrics & Analytics Hub',
           tech: 'Next.js, TypeScript, Tailwind CSS, Chart.js, PostgreSQL',
           bullets: [
-            'Created real-time analytics dashboard rendering key revenue and user engagement metrics.',
-            'Optimized SQL queries and frontend chart rendering performance.',
+            'Created a real-time analytics dashboard rendering key revenue, churn, and user engagement metrics.',
+            'Built dynamic interactive charts using Chart.js & Tailwind CSS with customizable date range filters.',
+            'Optimized complex SQL aggregation queries and database indexing to speed up multi-tenant reporting.',
+            'Integrated automated webhook processing and Stripe subscription billing status synchronization.'
           ]
         },
         fullstack: {
@@ -1533,8 +1542,10 @@ export default function Home() {
           title: 'Real-Time Collaboration Platform',
           tech: 'React.js, Node.js, Express, Socket.io, MongoDB',
           bullets: [
-            'Designed a multi-user workspace supporting live chat and document synchronization.',
-            'Implemented JWT authentication and role-based access control.',
+            'Designed a multi-user workspace supporting live chat, task boards, and document synchronization.',
+            'Implemented WebSockets with Socket.io for low-latency live messaging and active status indicators.',
+            'Architected secure Node.js & Express REST APIs integrated with MongoDB for robust data storage.',
+            'Deployed automated CI/CD build pipelines and environment config management for seamless releases.'
           ]
         },
         mobile: {
@@ -1542,15 +1553,22 @@ export default function Home() {
           title: 'Cross-Platform Mobile App',
           tech: 'React Native, Expo, Firebase, Redux Toolkit',
           bullets: [
-            'Developed a cross-platform iOS and Android mobile app with responsive UI.',
-            'Integrated offline data caching and real-time push notifications.',
+            'Developed a cross-platform iOS and Android mobile application using React Native and Expo.',
+            'Integrated offline data caching with AsyncStore and push notifications via Firebase Cloud Messaging.',
+            'Designed a fluid, intuitive mobile UI with responsive touch gestures and smooth page navigation.',
+            'Optimized memory usage and bundle size, resulting in a 25% faster cold boot launch time.'
           ]
         },
         custom: {
           category: 'Custom Project',
           title: '',
           tech: '',
-          bullets: []
+          bullets: [
+            'Designed and developed core application features using modern software architecture.',
+            'Integrated clean API services and database persistence for seamless user experience.',
+            'Implemented responsive UI layouts and component state management.',
+            'Optimized application performance, security, and build efficiency.'
+          ]
         }
       };
 
@@ -2771,11 +2789,12 @@ ${candidateName}`;
       const nameInput = form.querySelector('input[name="projectName"]');
       const name = nameInput?.value.trim();
       const tech = form.querySelector('input[name="projectTech"]')?.value.trim() || '';
-      const rawBullets = form.querySelector('textarea[name="projectBullets"]')?.value.trim() || '';
+      
       const checkedBoxes = Array.from(form.querySelectorAll('input[name="projBullets"]:checked')).map(cb => cb.value);
-      if (!name) return;
-      const extraBullets = rawBullets ? rawBullets.split('\n').map(l => l.trim()).filter(Boolean) : [];
-      const bullets = [...checkedBoxes, ...extraBullets];
+      const customInputEls = Array.from(form.querySelectorAll('input[data-custom-bullet="true"]'));
+      const customBullets = customInputEls.map(el => el.value.trim()).filter(Boolean);
+      
+      const bullets = [...checkedBoxes, ...customBullets];
       if (!bullets.length) bullets.push('Designed and built key application features using modern web architecture.');
       const entry = { name, tech, bullets };
 
@@ -2783,6 +2802,7 @@ ${candidateName}`;
       handleSectionProgress('projects');
 
       if (addAnother) {
+        setCustomProjBulletRows([0]);
         pushAiMessage({
           text: '**Project saved!** Add details for your next project below:',
           projectForm: true,
@@ -3045,19 +3065,49 @@ ${candidateName}`;
                 <input id="project-tech-input" name="projectTech" placeholder="e.g. React.js, Node.js, Express, MongoDB, Tailwind CSS" defaultValue={msg.projectDefaults?.tech || ''} style={formInputStyle} />
               </div>
               {msg.projectDefaults?.bullets && msg.projectDefaults.bullets.length > 0 && (
-                <div>
-                  <span style={formLabelStyle}>Suggested Key Features — tick the ones that fit</span>
+                <div style={{ marginBottom: '0.4rem' }}>
+                  <span style={formLabelStyle}>Suggested 4 AI Feature Highlights — tick to include</span>
                   {msg.projectDefaults.bullets.map((b, i) => (
-                    <label key={i} style={{ display: 'flex', gap: '0.35rem', alignItems: 'flex-start', fontSize: '0.68rem', color: '#475569', marginBottom: '0.25rem', cursor: 'pointer' }}>
+                    <label key={i} style={{ display: 'flex', gap: '0.35rem', alignItems: 'flex-start', fontSize: '0.68rem', color: '#475569', marginBottom: '0.28rem', cursor: 'pointer' }}>
                       <input type="checkbox" name="projBullets" value={b} defaultChecked={true} style={{ marginTop: '0.15rem' }} />
-                      <span>{b}</span>
+                      <span style={{ lineHeight: 1.35 }}>{b}</span>
                     </label>
                   ))}
                 </div>
               )}
+              
               <div>
-                <label style={formLabelStyle}>Key Highlights / Features (one per line)</label>
-                <textarea name="projectBullets" rows={2} placeholder="e.g. Integrated Stripe payment gateway&#10;Added real-time chat with Socket.io" style={{ ...formInputStyle, resize: 'vertical' }} />
+                <span style={formLabelStyle}>Add Custom Bullet Sentences</span>
+                {customProjBulletRows.map((rowId, index) => (
+                  <div key={rowId} style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.35rem', alignItems: 'center' }}>
+                    <input
+                      data-custom-bullet="true"
+                      name={`customBulletInput_${rowId}`}
+                      placeholder={`Sentence ${index + 1}: e.g. Integrated Stripe payment gateway for 10k users`}
+                      style={formInputStyle}
+                    />
+                    {customProjBulletRows.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomProjBulletRows(prev => prev.filter(r => r !== rowId))}
+                        style={{ border: '1px solid #fca5a5', background: '#fef2f2', color: '#ef4444', borderRadius: '6px', padding: '0.4rem 0.55rem', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                        title="Remove sentence"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCustomProjBulletRows(prev => [...prev, Date.now()])}
+                  style={{
+                    padding: '0.35rem 0.75rem', borderRadius: '50px', border: '1px solid #2563eb', background: '#eff6ff',
+                    color: '#2563eb', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.15rem'
+                  }}
+                >
+                  + Add Bullet Point
+                </button>
               </div>
             </div>
 
