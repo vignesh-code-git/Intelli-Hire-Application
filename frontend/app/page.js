@@ -953,11 +953,10 @@ export default function Home() {
       if (prev.some(s => s.toLowerCase() === skill.toLowerCase())) next = prev.filter(s => s.toLowerCase() !== skill.toLowerCase());
       else if (prev.length >= KEY_SKILLS_LIMIT) return prev;
       else next = [...prev, skill];
-      // Live-update the CV preview & header skills on every pick
+      // Live-update ONLY the CV header skills on every pick
       setCvDraftData(p => ({
         ...p,
-        headerSkills: next,
-        skills: categorizeSkills(next.join(', '))
+        headerSkills: next
       }));
       return next;
     });
@@ -1197,6 +1196,20 @@ export default function Home() {
         text: `${savedNote}**Which company did you work for?**`,
         hint: 'e.g. TCS, Infosys, or a startup name',
         options: [{ label: 'Skip experience', action: 'skip', section: 'experience' }],
+      });
+      return;
+    }
+
+    if (section === 'summary') {
+      const cards = await buildSectionSuggestions('summary');
+      setSectionEditFlow({ section: 'summary', stage: 'pick' });
+      pushAiMessage({
+        text: `${intro} — here are Professional Summaries tailored to **${cvDraftData?.position || 'your role'}**. Tap one to apply:`,
+        cards: cards.map(c => ({ ...c, section: 'summary' })),
+        options: [
+          { label: 'I\'ll type my own instead', action: 'own', section: 'summary' },
+          { label: 'Skip for now', action: 'skip', section: 'summary' }
+        ],
       });
       return;
     }
@@ -1456,8 +1469,7 @@ export default function Home() {
       setChatMessages(prev => [...prev, { id: Date.now(), sender: "user", text: picked.join(', ') }]);
       setCvDraftData(prev => ({
         ...prev,
-        headerSkills: picked,
-        skills: categorizeSkills(picked.join(', '))
+        headerSkills: picked
       }));
       setHeaderQuestionIdx(3);
       pushAiMessage({ text: '**Enter your email address**', hint: 'e.g. ravi.kumar@gmail.com' });
