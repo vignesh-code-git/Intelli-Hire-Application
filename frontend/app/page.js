@@ -2764,6 +2764,35 @@ ${candidateName}`;
       expSuggestedBullets = bank.flat().flatMap(e => (e.bullets || [])).slice(0, 5);
     }
 
+    const handleSaveProject = (e, addAnother = false) => {
+      e.preventDefault();
+      const form = e.target.closest('form');
+      if (!form) return;
+      const nameInput = form.querySelector('input[name="projectName"]');
+      const name = nameInput?.value.trim();
+      const tech = form.querySelector('input[name="projectTech"]')?.value.trim() || '';
+      const rawBullets = form.querySelector('textarea[name="projectBullets"]')?.value.trim() || '';
+      const checkedBoxes = Array.from(form.querySelectorAll('input[name="projBullets"]:checked')).map(cb => cb.value);
+      if (!name) return;
+      const extraBullets = rawBullets ? rawBullets.split('\n').map(l => l.trim()).filter(Boolean) : [];
+      const bullets = [...checkedBoxes, ...extraBullets];
+      if (!bullets.length) bullets.push('Designed and built key application features using modern web architecture.');
+      const entry = { name, tech, bullets };
+
+      setCvDraftData(prev => ({ ...prev, projects: [entry, ...(Array.isArray(prev.projects) ? prev.projects : [])] }));
+      handleSectionProgress('projects');
+
+      if (addAnother) {
+        pushAiMessage({
+          text: '**Project saved!** Add details for your next project below:',
+          projectForm: true,
+          projectDefaults: { category: 'Custom Project', title: '', tech: '', bullets: [] },
+        });
+      } else {
+        advanceGuided('projects');
+      }
+    };
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', maxWidth: '92%', marginTop: '0.1rem' }}>
         {msg.headerForm && (
@@ -2967,24 +2996,20 @@ ${candidateName}`;
           </form>
         )}
         {msg.projectForm && (
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const form = e.target;
-            const name = form.projectName.value.trim();
-            const tech = form.projectTech.value.trim();
-            const rawBullets = form.projectBullets.value.trim();
-            const checkedBoxes = Array.from(form.querySelectorAll('input[name="projBullets"]:checked')).map(cb => cb.value);
-            if (!name) return;
-            const extraBullets = rawBullets ? rawBullets.split('\n').map(l => l.trim()).filter(Boolean) : [];
-            const bullets = [...checkedBoxes, ...extraBullets];
-            if (!bullets.length) bullets.push('Designed and built key application features using modern web architecture.');
-            const entry = { name, tech, bullets };
-            setCvDraftData(prev => ({ ...prev, projects: [entry, ...(Array.isArray(prev.projects) ? prev.projects : [])] }));
-            handleSectionProgress('projects');
-            advanceGuided('projects');
-          }} style={formCardStyle}>
+          <form onSubmit={(e) => handleSaveProject(e, false)} style={formCardStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
+              <span style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--accent-blue)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                🚀 Project Details
+              </span>
+              {msg.projectDefaults?.category && (
+                <span style={{ fontSize: '0.64rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '50px', padding: '0.12rem 0.55rem' }}>
+                  {msg.projectDefaults.category}
+                </span>
+              )}
+            </div>
+
             <div style={{ marginBottom: '0.65rem' }}>
-              <span style={formLabelStyle}>Select Category to Auto-Fill Title & Tech Stack</span>
+              <span style={formLabelStyle}>Select Category to Pre-fill Title & Tech Stack</span>
               <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
                 {[
                   { name: '🛒 E-commerce', title: 'ShopMart E-Commerce Platform', tech: 'React.js, Node.js, Express, MongoDB, Tailwind CSS' },
@@ -2992,7 +3017,8 @@ ${candidateName}`;
                   { name: '🤖 AI / ML App', title: 'AI Job & Resume Optimizer', tech: 'Python, FastAPI, Next.js, PyTorch' },
                   { name: '📊 SaaS Dashboard', title: 'SaaS Analytics Dashboard', tech: 'Next.js, TypeScript, Tailwind CSS, PostgreSQL' },
                   { name: '💻 Fullstack App', title: 'Real-Time Collaboration Hub', tech: 'React.js, Node.js, Socket.io, MongoDB' },
-                  { name: '📱 Mobile App', title: 'Cross-Platform Mobile App', tech: 'React Native, Expo, Firebase, Redux' }
+                  { name: '📱 Mobile App', title: 'Cross-Platform Mobile App', tech: 'React Native, Expo, Firebase, Redux' },
+                  { name: '✏️ Custom', title: '', tech: '' }
                 ].map((cat) => (
                   <button key={cat.name} type="button" onClick={() => {
                     const nameEl = document.getElementById('project-name-input');
@@ -3000,7 +3026,7 @@ ${candidateName}`;
                     if (nameEl) nameEl.value = cat.title;
                     if (techEl) techEl.value = cat.tech;
                   }} style={{
-                    padding: '0.35rem 0.75rem', borderRadius: '50px', fontSize: '0.76rem', fontWeight: 650, cursor: 'pointer',
+                    padding: '0.32rem 0.7rem', borderRadius: '50px', fontSize: '0.74rem', fontWeight: 650, cursor: 'pointer',
                     border: '1px solid #2563eb', background: '#eff6ff', color: '#2563eb', transition: 'all 0.15s'
                   }}>
                     {cat.name}
@@ -3009,9 +3035,9 @@ ${candidateName}`;
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.55rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.65rem' }}>
               <div>
-                <label style={formLabelStyle}>Project Name / Title</label>
+                <label style={formLabelStyle}>Project Name / Title *</label>
                 <input id="project-name-input" name="projectName" required placeholder="e.g. ShopMart E-Commerce Platform" defaultValue={msg.projectDefaults?.title || ''} style={formInputStyle} />
               </div>
               <div>
@@ -3034,7 +3060,16 @@ ${candidateName}`;
                 <textarea name="projectBullets" rows={2} placeholder="e.g. Integrated Stripe payment gateway&#10;Added real-time chat with Socket.io" style={{ ...formInputStyle, resize: 'vertical' }} />
               </div>
             </div>
-            <button type="submit" style={saveBtnStyle}>Save Project → Next</button>
+
+            <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button type="submit" style={saveBtnStyle}>Save Project → Next</button>
+              <button type="button" onClick={(e) => handleSaveProject(e, true)} style={{
+                padding: '0.48rem 0.95rem', borderRadius: '50px', border: '1px solid #2563eb', background: '#eff6ff',
+                color: '#2563eb', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
+              }}>
+                + Add Another Project
+              </button>
+            </div>
           </form>
         )}
         {msg.certificationForm && (
