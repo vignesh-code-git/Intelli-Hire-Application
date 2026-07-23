@@ -743,7 +743,7 @@ export default function Home() {
       case 3: return "Enter your email address";
       case 4: return "Enter your phone number";
       case 5: return "Where are you based?";
-      case 6: return "Add your professional links";
+      case 6: return "Add your LinkedIn link";
       default: return "";
     }
   };
@@ -1665,8 +1665,8 @@ export default function Home() {
       setHeaderQuestionIdx(5);
     } else if (headerQuestionIdx === 5) {
       setCvDraftData(prev => ({ ...prev, location: skip ? '' : userText }));
-      replyText = "**Add your professional links**";
-      replyHint = 'Paste your LinkedIn and/or GitHub — or tap Skip';
+      replyText = "**Add your LinkedIn link**";
+      replyHint = 'Paste your LinkedIn profile URL (e.g. linkedin.com/in/yourname) — or tap Skip';
       replySuggestions = ['Skip'];
       setHeaderQuestionIdx(6);
     } else if (headerQuestionIdx === 6) {
