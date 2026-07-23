@@ -4258,7 +4258,7 @@ ${candidateName}`;
       {renderNavbar()}
 
       {/* ── ROUTE 1: HOME PAGE ── */}
-      {(currentRoute === 'home' || (isInitialState && !cvCompleted)) && (
+      {currentRoute === 'home' && (
         <div style={{
           minHeight: "100vh",
           display: "flex",
@@ -4329,8 +4329,8 @@ ${candidateName}`;
         </div>
       )}
 
-      {/* ── ACTIVE STATE: two-column building layout (chat still open) ── */}
-      {!isInitialState && !cvCompleted && (
+      {/* ── ROUTE 2: INTELLIHIRE WORKPLACE (CV Builder) ── */}
+      {currentRoute === 'workplace' && (
         <div style={{ display: "flex", minHeight: "100vh", maxHeight: "100vh", overflow: "hidden" }}>
 
           {/* ── LEFT COLUMN: Full-height CV ── */}
@@ -4682,8 +4682,8 @@ ${candidateName}`;
         </div>
       )}
 
-      {/* ── FINISHED STATE: centered CV + matching jobs + floating command bar ── */}
-      {!isInitialState && cvCompleted && (
+      {/* ── ROUTE 3: JOB LISTINGS (Finished CV & Job Search) ── */}
+      {currentRoute === 'joblists' && (
         <div className="cv-scroll" style={{ height: '100vh', overflowY: 'auto', background: 'var(--bg-body)', paddingBottom: '11rem' }}>
 
           {/* Slim top bar: brand + search / role switch */}
