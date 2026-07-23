@@ -959,17 +959,14 @@ export default function Home() {
       alert("Please complete your CV in IntelliHire Workplace first to unlock Job Listings!");
       return;
     }
+    // Navigate in-place (state + history.replaceState). A router.push would
+    // remount MainApp and wipe the CV + chat, so we keep the same instance and
+    // just swap which view renders — the built CV and conversation persist.
     setCurrentRoute(routeKey);
-
-    if (routeKey === 'home') {
-      setCvCompleted(false);
-      if (pathname !== '/') router.push('/');
-    } else if (routeKey === 'workplace') {
-      setCvCompleted(false);
-      if (pathname !== '/intellihire-work-place') router.push('/intellihire-work-place');
-    } else if (routeKey === 'joblists') {
-      setCvCompleted(true);
-      if (pathname !== '/joblists') router.push('/joblists');
+    const urlMap = { home: '/', workplace: '/intellihire-work-place', joblists: '/joblists' };
+    const url = urlMap[routeKey];
+    if (url && typeof window !== 'undefined' && window.location.pathname !== url) {
+      window.history.replaceState(null, '', url);
     }
   };
 
@@ -2090,31 +2087,35 @@ export default function Home() {
     setChatMessages(prev => [...prev, { id: Date.now() + 2, sender: "ai", text: replyText, hint: replyHint || undefined, suggestions: replySuggestions || undefined, keySkillsPicker: replyKeySkillsPicker || undefined, skillPool: replySkillPool || undefined }]);
   };
 
-  // Fetch jobs from backend on component mount and handle click outside for dropdown
+  // Fetch jobs/stats from backend on mount. The backend may be a cold-starting
+  // Render free-tier instance (up to ~50s to wake), so we retry with backoff
+  // until we actually get data instead of failing silently and leaving jobs empty.
   useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/jobs/`);
-        const data = await res.json();
-        if (res.ok) {
-          setJobs(data.jobs || []);
-        }
-      } catch (err) {
-        console.error("Error fetching jobs from backend:", err);
-      }
-    };
-    fetchJobs();
+    let cancelled = false;
 
-    const fetchStats = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/stats/`);
-        const data = await res.json();
-        if (res.ok) setPlatformStats(data);
-      } catch (err) {
-        console.error("Error fetching platform stats:", err);
+    const fetchWithRetry = async (path, apply, { retries = 12, delay = 5000 } = {}) => {
+      for (let attempt = 0; attempt <= retries && !cancelled; attempt++) {
+        try {
+          const res = await fetch(`${API_BASE}${path}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (cancelled) return;
+            if (apply(data) !== false) return; // success — stop retrying
+          }
+        } catch (err) {
+          // backend likely waking up; retry after a delay
+        }
+        await new Promise((r) => setTimeout(r, delay));
       }
     };
-    fetchStats();
+
+    // Keep retrying until we get a non-empty job list (handles cold start / seeding)
+    fetchWithRetry("/api/jobs/", (data) => {
+      const list = data.jobs || [];
+      if (list.length) { setJobs(list); return true; }
+      return false;
+    });
+    fetchWithRetry("/api/stats/", (data) => { setPlatformStats(data); return true; }, { retries: 6 });
 
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -2122,7 +2123,7 @@ export default function Home() {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => { cancelled = true; document.removeEventListener("mousedown", handleClickOutside); };
   }, []);
 
   // Speech to Text (Web Speech API SpeechRecognition)
@@ -3123,7 +3124,7 @@ ${candidateName}`;
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', maxWidth: '92%', marginTop: '0.1rem' }}>
         {msg.headerForm && (
           <form onSubmit={saveHeaderForm} style={formCardStyle}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.6rem' }}>
+            <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.6rem' }}>
               <div><label style={formLabelStyle}>Full Name *</label>
                 <input name="name" required placeholder="e.g. Arjun Nair" defaultValue={cvDraftData?.name || ''} style={formInputStyle} /></div>
               <div><label style={formLabelStyle}>Job Position</label>
@@ -3282,7 +3283,7 @@ ${candidateName}`;
         )}
         {msg.experienceForm && (
           <form onSubmit={saveExperienceForm} style={formCardStyle}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.55rem' }}>
+            <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.55rem' }}>
               <div><label style={formLabelStyle}>Position / Job Title</label>
                 <input name="position" placeholder="e.g. MERN Stack Developer" defaultValue={cvDraftData?.position || ''} style={formInputStyle} /></div>
               <div><label style={formLabelStyle}>Company Name</label>
@@ -3424,7 +3425,7 @@ ${candidateName}`;
                 <label style={formLabelStyle}>College / University / Institute</label>
                 <input name="eduSchool" placeholder="e.g. National Institute of Technology / Calicut University" style={formInputStyle} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <div>
                   <label style={formLabelStyle}>Graduation Year</label>
                   <select name="eduYear" defaultValue="2024" style={formInputStyle}>
@@ -4216,8 +4217,7 @@ ${candidateName}`;
           { key: 'workplace', label: 'IntelliHire Workplace', Icon: FiFileText, isDisabled: false },
           { key: 'joblists', label: 'Job Listings', Icon: FiBriefcase, isDisabled: !cvCompleted }
         ].map((route) => {
-          const activeRouteKey = pathname === '/intellihire-work-place' ? 'workplace' : pathname === '/joblists' ? 'joblists' : 'home';
-          const active = activeRouteKey === route.key;
+          const active = currentRoute === route.key;
           const disabled = route.isDisabled;
           const Icon = route.Icon;
           return (

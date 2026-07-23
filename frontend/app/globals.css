@@ -1795,7 +1795,9 @@ img, svg, video { max-width: 100%; }
   .workplace-row { max-width: 1800px; }
 }
 
-/* ── Tablet and below: stack the two-column workspace vertically ── */
+/* ── Tablet and below: stack the workspace vertically ──
+   Chat (where you type) comes first so the input is reachable on the first
+   screen; the CV preview sits below it. ── */
 @media (max-width: 1024px) {
   .workplace-row {
     flex-direction: column !important;
@@ -1804,20 +1806,22 @@ img, svg, video { max-width: 100%; }
     height: auto !important;
     overflow: visible !important;
   }
+  .wp-chat-col {
+    order: -1 !important;
+    width: 100% !important;
+    height: calc(100vh - 56px) !important;
+    min-height: 480px !important;
+    position: static !important;
+    border-left: none !important;
+    border-bottom: 1px solid var(--border-color) !important;
+  }
   .wp-cv-col {
+    order: 1 !important;
     width: 100% !important;
     height: auto !important;
     max-height: none !important;
     border-right: none !important;
-    border-bottom: 1px solid var(--border-color) !important;
     padding: 1.75rem 1.75rem !important;
-  }
-  .wp-chat-col {
-    width: 100% !important;
-    height: 82vh !important;
-    min-height: 520px !important;
-    position: static !important;
-    border-left: none !important;
   }
 }
 
@@ -1879,4 +1883,9 @@ button { box-shadow: none !important; }
 @media (max-width: 400px) {
   .wp-upload-btn { width: 44px !important; }
   .ih-mic-btn, .ih-send-btn { width: 44px !important; height: 44px !important; }
+}
+
+/* ── Section-editor forms: stack 2-col grids on phones ── */
+@media (max-width: 640px) {
+  .form-grid-2 { grid-template-columns: 1fr !important; }
 }
