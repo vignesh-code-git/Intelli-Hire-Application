@@ -1242,6 +1242,7 @@ export default function Home() {
       pushAiMessage({
         text: `${intro} — **Enter your certification details below:**`,
         certificationForm: true,
+        options: [{ label: 'Skip Certifications', action: 'skip', section: 'certifications' }]
       });
       return;
     }
@@ -1250,6 +1251,7 @@ export default function Home() {
       pushAiMessage({
         text: `${intro} — **Enter your achievement details below:**`,
         achievementForm: true,
+        options: [{ label: 'Skip Achievements', action: 'skip', section: 'achievements' }]
       });
       return;
     }
@@ -3420,6 +3422,12 @@ ${candidateName}`;
               }}>
                 + Add Another Certification
               </button>
+              <button type="button" onClick={() => handleChatOption({ action: 'skip', section: 'certifications' })} style={{
+                padding: '0.48rem 0.95rem', borderRadius: '50px', border: '1px solid #cbd5e1', background: '#f8fafc',
+                color: '#64748b', fontSize: '0.78rem', fontWeight: 650, cursor: 'pointer'
+              }}>
+                Skip Certifications
+              </button>
             </div>
           </form>
         )}
@@ -3450,6 +3458,12 @@ ${candidateName}`;
                 color: '#2563eb', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
               }}>
                 + Add Another Achievement
+              </button>
+              <button type="button" onClick={() => handleChatOption({ action: 'skip', section: 'achievements' })} style={{
+                padding: '0.48rem 0.95rem', borderRadius: '50px', border: '1px solid #cbd5e1', background: '#f8fafc',
+                color: '#64748b', fontSize: '0.78rem', fontWeight: 650, cursor: 'pointer'
+              }}>
+                Skip Achievements
               </button>
             </div>
           </form>
