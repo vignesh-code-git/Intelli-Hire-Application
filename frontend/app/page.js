@@ -938,10 +938,24 @@ export default function Home() {
   const fileInputRef = useRef(null);
   const optimizedCardRef = useRef(null);
   const dropdownRef = useRef(null);
+  const [currentRoute, setCurrentRoute] = useState('home'); // 'home' | 'workplace' | 'joblists'
+
+  const navigateToRoute = (routeKey) => {
+    setCurrentRoute(routeKey);
+    if (routeKey === 'home') {
+      setIsInitialState(true);
+      setCvCompleted(false);
+    } else if (routeKey === 'workplace') {
+      setIsInitialState(false);
+      setCvCompleted(false);
+    } else if (routeKey === 'joblists') {
+      setIsInitialState(false);
+      setCvCompleted(true);
+    }
+  };
 
   const handleGoHome = () => {
-    setIsInitialState(true);
-    setCvCompleted(false);
+    navigateToRoute('home');
     setSearchQuery('');
     setActivePill('All');
   };
@@ -4148,11 +4162,57 @@ ${candidateName}`;
     </div>
   );
 
+  const renderNavbar = () => (
+    <header style={{
+      position: 'sticky', top: 0, zIndex: 100, background: 'rgba(255, 255, 255, 0.95)',
+      backdropFilter: 'blur(10px)', borderBottom: '1px solid var(--border-color)',
+      padding: '0.65rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+    }}>
+      <div onClick={() => navigateToRoute('home')} style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', cursor: 'pointer' }} title="Go to Home Page">
+        <svg viewBox="0 0 24 24" fill="var(--accent-blue)" style={{ width: '1.6rem', height: '1.6rem' }}>
+          <path d="M 8 3 Q 8 12 15 12 Q 8 12 8 21 Q 8 12 1 12 Q 8 12 8 3 Z" />
+          <path d="M 18 1 Q 18 7 23 7 Q 18 7 18 1 Z" />
+          <path d="M 16 13 Q 16 17 19.5 17 Q 16 17 16 21 Q 16 17 12.5 17 Q 16 17 16 13 Z" />
+        </svg>
+        <span style={{ fontWeight: 850, fontSize: '1.2rem', color: 'var(--text-dark)', letterSpacing: '-0.02em' }}>
+          Intelli<span style={{ color: 'var(--accent-blue)' }}>Hire</span>
+        </span>
+      </div>
+
+      <nav style={{ display: 'flex', gap: '0.4rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '50px' }}>
+        {[
+          { key: 'home', label: '🏠 Home' },
+          { key: 'workplace', label: '🚀 IntelliHire Workplace' },
+          { key: 'joblists', label: '💼 Job Listings' }
+        ].map((route) => {
+          const active = currentRoute === route.key || (route.key === 'home' && isInitialState) || (route.key === 'workplace' && !isInitialState && !cvCompleted) || (route.key === 'joblists' && !isInitialState && cvCompleted);
+          return (
+            <button
+              key={route.key}
+              type="button"
+              onClick={() => navigateToRoute(route.key)}
+              style={{
+                padding: '0.45rem 1rem', borderRadius: '50px', border: 'none',
+                background: active ? 'var(--accent-blue)' : 'transparent',
+                color: active ? '#ffffff' : '#64748b',
+                fontSize: '0.82rem', fontWeight: active ? 750 : 650, cursor: 'pointer',
+                transition: 'all 0.18s ease', boxShadow: active ? '0 2px 8px rgba(37,99,235,0.22)' : 'none'
+              }}
+            >
+              {route.label}
+            </button>
+          );
+        })}
+      </nav>
+    </header>
+  );
+
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-body)", fontFamily: "var(--font-sans)" }}>
+      {renderNavbar()}
 
-      {/* ── INITIAL STATE: centered hero ── */}
-      {isInitialState && (
+      {/* ── ROUTE 1: HOME PAGE ── */}
+      {(currentRoute === 'home' || (isInitialState && !cvCompleted)) && (
         <div style={{
           minHeight: "100vh",
           display: "flex",
