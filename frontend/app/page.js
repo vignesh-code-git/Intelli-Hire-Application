@@ -1473,6 +1473,13 @@ export default function Home() {
       return;
     }
     if (opt.action === 'own') {
+      if (opt.section === 'projects') {
+        pushAiMessage({
+          text: '**Select a project category below or enter your project details:**',
+          projectForm: true,
+        });
+        return;
+      }
       if (opt.section === 'experience') {
         pushAiMessage({
           text: '**What is your job position, company name, location, and employment duration?**',
@@ -2856,6 +2863,64 @@ ${candidateName}`;
               <textarea name="ownBullets" rows={2} placeholder="e.g. Built features using React and Node.js for 10k users" style={{ ...formInputStyle, resize: 'vertical' }} />
             </div>
             <button type="submit" style={saveBtnStyle}>Save Experience → Next</button>
+          </form>
+        )}
+        {msg.projectForm && (
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.target;
+            const name = form.projectName.value.trim();
+            const tech = form.projectTech.value.trim();
+            const rawBullets = form.projectBullets.value.trim();
+            if (!name) return;
+            const bullets = rawBullets
+              ? rawBullets.split('\n').map(l => l.trim()).filter(Boolean)
+              : ['Designed and built high-performance features with modern architecture.'];
+            const entry = { name, tech, bullets };
+            setCvDraftData(prev => ({ ...prev, projects: [entry, ...(Array.isArray(prev.projects) ? prev.projects : [])] }));
+            handleSectionProgress('projects');
+            advanceGuided('projects');
+          }} style={formCardStyle}>
+            <div style={{ marginBottom: '0.65rem' }}>
+              <span style={formLabelStyle}>Select Project Category Suggestion</span>
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                {[
+                  { name: '🛒 E-commerce', title: 'ShopMart E-Commerce Platform', tech: 'React.js, Node.js, Express, MongoDB, Tailwind CSS' },
+                  { name: '💼 CRM System', title: 'Enterprise CRM Portal', tech: 'React.js, Django, PostgreSQL, REST APIs' },
+                  { name: '🤖 AI / ML App', title: 'AI Job & Resume Optimizer', tech: 'Python, FastAPI, Next.js, PyTorch' },
+                  { name: '📊 SaaS Dashboard', title: 'SaaS Analytics Dashboard', tech: 'Next.js, TypeScript, Tailwind CSS, PostgreSQL' },
+                  { name: '💻 Fullstack App', title: 'Real-Time Collaboration Hub', tech: 'React.js, Node.js, Socket.io, MongoDB' }
+                ].map((cat) => (
+                  <button key={cat.name} type="button" onClick={() => {
+                    const nameEl = document.getElementById('project-name-input');
+                    const techEl = document.getElementById('project-tech-input');
+                    if (nameEl) nameEl.value = cat.title;
+                    if (techEl) techEl.value = cat.tech;
+                  }} style={{
+                    padding: '0.35rem 0.75rem', borderRadius: '50px', fontSize: '0.76rem', fontWeight: 650, cursor: 'pointer',
+                    border: '1px solid #2563eb', background: '#eff6ff', color: '#2563eb', transition: 'all 0.15s'
+                  }}>
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.55rem' }}>
+              <div>
+                <label style={formLabelStyle}>Project Name / Title</label>
+                <input id="project-name-input" name="projectName" required placeholder="e.g. ShopMart E-Commerce Platform" style={formInputStyle} />
+              </div>
+              <div>
+                <label style={formLabelStyle}>Tech Stack Used</label>
+                <input id="project-tech-input" name="projectTech" placeholder="e.g. React.js, Node.js, Express, MongoDB, Tailwind CSS" style={formInputStyle} />
+              </div>
+              <div>
+                <label style={formLabelStyle}>Key Highlights / Features (one per line)</label>
+                <textarea name="projectBullets" rows={3} placeholder="e.g. Built full-stack e-commerce app with cart management&#10;Integrated REST APIs and payment checkout gateway" style={{ ...formInputStyle, resize: 'vertical' }} />
+              </div>
+            </div>
+            <button type="submit" style={saveBtnStyle}>Save Project → Next</button>
           </form>
         )}
         {msg.certificationForm && (
