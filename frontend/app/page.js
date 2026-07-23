@@ -1190,20 +1190,11 @@ export default function Home() {
     }
 
     if (section === 'projects') {
-      setSectionEditFlow({ section: 'projects', stage: 'category' });
       pushAiMessage({
-        text: `${intro} — **Select a project category, or choose to type your own custom project:**`,
-        hint: 'Tap a category to auto-fill details, or type your own custom project:',
-        options: [
-          { label: '🛒 E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
-          { label: '💼 CRM / ERP System', action: 'proj-category', category: 'crm', section: 'projects' },
-          { label: '🤖 AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
-          { label: '📊 SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
-          { label: '💻 Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
-          { label: '📱 Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
-          { label: '✏️ Type My Own Custom Project', action: 'own', section: 'projects' },
-          { label: 'Skip Projects', action: 'skip', section: 'projects' },
-        ],
+        text: `${intro} — **Add your project details below:**`,
+        hint: 'Tap a category button inside the form to auto-fill, or type custom project details',
+        projectForm: true,
+        projectDefaults: { category: 'Projects', title: '', tech: '', bullets: [] },
       });
       return;
     }
@@ -2976,21 +2967,40 @@ ${candidateName}`;
             handleSectionProgress('projects');
             advanceGuided('projects');
           }} style={formCardStyle}>
-            {msg.projectDefaults?.category && (
-              <div style={{ marginBottom: '0.55rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '50px', padding: '0.15rem 0.55rem' }}>
-                  Category: {msg.projectDefaults.category}
-                </span>
+            <div style={{ marginBottom: '0.65rem' }}>
+              <span style={formLabelStyle}>Select Category to Auto-Fill Title & Tech Stack</span>
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                {[
+                  { name: '🛒 E-commerce', title: 'ShopMart E-Commerce Platform', tech: 'React.js, Node.js, Express, MongoDB, Tailwind CSS' },
+                  { name: '💼 CRM System', title: 'Enterprise CRM Portal', tech: 'React.js, Django, PostgreSQL, REST APIs' },
+                  { name: '🤖 AI / ML App', title: 'AI Job & Resume Optimizer', tech: 'Python, FastAPI, Next.js, PyTorch' },
+                  { name: '📊 SaaS Dashboard', title: 'SaaS Analytics Dashboard', tech: 'Next.js, TypeScript, Tailwind CSS, PostgreSQL' },
+                  { name: '💻 Fullstack App', title: 'Real-Time Collaboration Hub', tech: 'React.js, Node.js, Socket.io, MongoDB' },
+                  { name: '📱 Mobile App', title: 'Cross-Platform Mobile App', tech: 'React Native, Expo, Firebase, Redux' }
+                ].map((cat) => (
+                  <button key={cat.name} type="button" onClick={() => {
+                    const nameEl = document.getElementById('project-name-input');
+                    const techEl = document.getElementById('project-tech-input');
+                    if (nameEl) nameEl.value = cat.title;
+                    if (techEl) techEl.value = cat.tech;
+                  }} style={{
+                    padding: '0.35rem 0.75rem', borderRadius: '50px', fontSize: '0.76rem', fontWeight: 650, cursor: 'pointer',
+                    border: '1px solid #2563eb', background: '#eff6ff', color: '#2563eb', transition: 'all 0.15s'
+                  }}>
+                    {cat.name}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.55rem' }}>
               <div>
                 <label style={formLabelStyle}>Project Name / Title</label>
-                <input name="projectName" required placeholder="e.g. ShopMart E-Commerce Platform" defaultValue={msg.projectDefaults?.title || ''} style={formInputStyle} />
+                <input id="project-name-input" name="projectName" required placeholder="e.g. ShopMart E-Commerce Platform" defaultValue={msg.projectDefaults?.title || ''} style={formInputStyle} />
               </div>
               <div>
                 <label style={formLabelStyle}>Tech Stack Used</label>
-                <input name="projectTech" placeholder="e.g. React.js, Node.js, Express, MongoDB, Tailwind CSS" defaultValue={msg.projectDefaults?.tech || ''} style={formInputStyle} />
+                <input id="project-tech-input" name="projectTech" placeholder="e.g. React.js, Node.js, Express, MongoDB, Tailwind CSS" defaultValue={msg.projectDefaults?.tech || ''} style={formInputStyle} />
               </div>
               {msg.projectDefaults?.bullets && msg.projectDefaults.bullets.length > 0 && (
                 <div>
@@ -3004,7 +3014,7 @@ ${candidateName}`;
                 </div>
               )}
               <div>
-                <label style={formLabelStyle}>Additional Features / Custom Points (optional, one per line)</label>
+                <label style={formLabelStyle}>Key Highlights / Features (one per line)</label>
                 <textarea name="projectBullets" rows={2} placeholder="e.g. Integrated Stripe payment gateway&#10;Added real-time chat with Socket.io" style={{ ...formInputStyle, resize: 'vertical' }} />
               </div>
             </div>
