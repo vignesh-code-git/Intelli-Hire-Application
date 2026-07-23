@@ -1624,20 +1624,10 @@ export default function Home() {
       } else {
         const val = userText.toUpperCase();
         setCvDraftData(prev => ({ ...prev, name: val }));
-        if (cvDraftData?.position) {
-          // Role already chosen from the picker — skip the position question
-          replyText = "**Add your key skills**";
-          replyHint = skillsHint;
-          replyKeySkillsPicker = true;
-          replySkillPool = keySkillPool(cvDraftData.position);
-          setKeySkills([]);
-          setHeaderQuestionIdx(2);
-        } else {
-          replyText = "**What role are you targeting?**";
-          replyHint = 'Pick a job position below, or type your own';
-          replySuggestions = ['Frontend Developer', 'MERN Stack Developer', 'Backend Engineer', 'Full Stack Developer', 'Data Analyst', 'DevOps Engineer'];
-          setHeaderQuestionIdx(1);
-        }
+        replyText = "**Confirm your target job role**";
+        replyHint = 'Pick a job position below, or type your own';
+        replySuggestions = ['Frontend Developer', 'MERN Stack Developer', 'Backend Engineer', 'Full Stack Developer', 'Data Analyst', 'DevOps Engineer', 'Mobile App Developer'];
+        setHeaderQuestionIdx(1);
       }
     } else if (headerQuestionIdx === 1) {
       generateRoleCv(userText);
