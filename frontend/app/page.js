@@ -939,6 +939,13 @@ export default function Home() {
   const optimizedCardRef = useRef(null);
   const dropdownRef = useRef(null);
 
+  const handleGoHome = () => {
+    setIsInitialState(true);
+    setCvCompleted(false);
+    setSearchQuery('');
+    setActivePill('All');
+  };
+
   // ═══════════════════════════════════════════════════════════
   // AI SECTION EDITOR — chat-driven editing per CV section:
   // the user picks "AI suggestions" (role-tailored cards) or
