@@ -1,6 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  async rewrites() {
+    return [
+      {
+        source: '/intellihire-work-place',
+        destination: '/',
+      },
+      {
+        source: '/joblists',
+        destination: '/',
+      },
+    ];
+  },
 };
 
 export default nextConfig;
