@@ -946,16 +946,10 @@ export default function Home() {
   useEffect(() => {
     if (pathname === '/intellihire-work-place') {
       setCurrentRoute('workplace');
-      setIsInitialState(false);
-      setCvCompleted(false);
     } else if (pathname === '/joblists') {
       setCurrentRoute('joblists');
-      setIsInitialState(false);
-      setCvCompleted(true);
     } else {
       setCurrentRoute('home');
-      setIsInitialState(true);
-      setCvCompleted(false);
     }
   }, [pathname]);
 
@@ -967,15 +961,12 @@ export default function Home() {
     setCurrentRoute(routeKey);
 
     if (routeKey === 'home') {
-      setIsInitialState(true);
       setCvCompleted(false);
       if (pathname !== '/') router.push('/');
     } else if (routeKey === 'workplace') {
-      setIsInitialState(false);
       setCvCompleted(false);
       if (pathname !== '/intellihire-work-place') router.push('/intellihire-work-place');
     } else if (routeKey === 'joblists') {
-      setIsInitialState(false);
       setCvCompleted(true);
       if (pathname !== '/joblists') router.push('/joblists');
     }
@@ -2181,7 +2172,13 @@ export default function Home() {
     setActivePill(pill);
     setSearchQuery(pill);
     setRightPanelTab('assistant');
-    navigateToRoute('workplace');
+    // Switch to the workplace view in-place (no route change) so the CV state we
+    // set below survives — a router.push would remount MainApp and wipe it.
+    setCurrentRoute('workplace');
+    setCvCompleted(false);
+    if (pathname !== '/intellihire-work-place') {
+      window.history.replaceState(null, '', '/intellihire-work-place');
+    }
     setError("");
     setParsedCV(null);
     setUploadedFileName("");
