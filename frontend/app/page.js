@@ -918,8 +918,12 @@ export default function Home() {
       if (prev.some(s => s.toLowerCase() === skill.toLowerCase())) next = prev.filter(s => s.toLowerCase() !== skill.toLowerCase());
       else if (prev.length >= KEY_SKILLS_LIMIT) return prev;
       else next = [...prev, skill];
-      // Live-update the CV preview on every pick
-      setCvDraftData(p => ({ ...p, skills: categorizeSkills(next.join(', ')) }));
+      // Live-update the CV preview & header skills on every pick
+      setCvDraftData(p => ({
+        ...p,
+        headerSkills: next,
+        skills: categorizeSkills(next.join(', '))
+      }));
       return next;
     });
   };
@@ -1415,7 +1419,11 @@ export default function Home() {
     if (opt.action === 'key-skills-done') {
       const picked = keySkills.length ? keySkills : getRecommendedSkills(cvDraftData?.position || '').slice(0, KEY_SKILLS_LIMIT);
       setChatMessages(prev => [...prev, { id: Date.now(), sender: "user", text: picked.join(', ') }]);
-      setCvDraftData(prev => ({ ...prev, skills: categorizeSkills(picked.join(', ')) }));
+      setCvDraftData(prev => ({
+        ...prev,
+        headerSkills: picked,
+        skills: categorizeSkills(picked.join(', '))
+      }));
       setHeaderQuestionIdx(3);
       pushAiMessage({ text: '**Enter your email address**', hint: 'e.g. ravi.kumar@gmail.com' });
       return;
@@ -1530,9 +1538,11 @@ export default function Home() {
   const generateRoleCv = (position) => {
     const role = getRoleType(position);
     const pick = (bank) => bank[role] || bank.fullstack || Object.values(bank)[0];
+    const initialHeaderSkills = getRecommendedSkills(position).slice(0, 6);
     setCvDraftData(prev => ({
       ...prev,
       position,
+      headerSkills: initialHeaderSkills,
       summary: pick(SUMMARY_BANK)[0],
       skills: { ...pick(SKILLSET_BANK) },
       experience: pick(EXPERIENCE_BANK)[0],
