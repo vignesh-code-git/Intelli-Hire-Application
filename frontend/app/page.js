@@ -1115,9 +1115,10 @@ export default function Home() {
       setRightPanelTab('jobs');
       setCvCompleted(true);
       pushAiMessage({
-        text: "**Your CV is completed!** It's ready at the center, with jobs matching your profile listed right below it.\n\n" +
-          "Want to refine anything? **Click any section on the CV** (or use the Edit Section bar) — pick new suggestions, or type your own content and I'll polish it into professional wording. ",
+        text: "**Your CV build is complete!** All sections have been formatted and tailored to your target role.\n\n" +
+          "What would you like to do next?",
         options: [
+          { label: 'Confirm Edition & Complete CV', action: 'confirm-complete' },
           { label: 'Download PDF', action: 'download' },
         ],
       });
@@ -1188,27 +1189,15 @@ export default function Home() {
       return;
     }
 
-    if (section === 'experience') {
-      // Guided, one-by-one flow: company → title → duration → role-based bullets
-      setSectionEditFlow(null);
-      setExpFlow({ stage: 'company', draft: {}, pool: [], chosen: [] });
+    if (['summary', 'education', 'certifications', 'achievements', 'experience', 'projects'].includes(section)) {
+      const cards = await buildSectionSuggestions(section);
+      setSectionEditFlow({ section, stage: 'pick' });
       pushAiMessage({
-        text: `${savedNote}**Which company did you work for?**`,
-        hint: 'e.g. TCS, Infosys, or a startup name',
-        options: [{ label: 'Skip experience', action: 'skip', section: 'experience' }],
-      });
-      return;
-    }
-
-    if (section === 'summary') {
-      const cards = await buildSectionSuggestions('summary');
-      setSectionEditFlow({ section: 'summary', stage: 'pick' });
-      pushAiMessage({
-        text: `${intro} — here are Professional Summaries tailored to **${cvDraftData?.position || 'your role'}**. Tap one to apply:`,
-        cards: cards.map(c => ({ ...c, section: 'summary' })),
+        text: `${intro} — here are **${SECTION_LABELS[section]}** options tailored to **${cvDraftData?.position || 'your role'}**. Tap one to apply, or type your own below:`,
+        cards: cards.map(c => ({ ...c, section })),
         options: [
-          { label: 'I\'ll type my own instead', action: 'own', section: 'summary' },
-          { label: 'Skip for now', action: 'skip', section: 'summary' }
+          { label: `I'll type my own ${SECTION_LABELS[section].toLowerCase()}`, action: 'own', section },
+          { label: `Skip ${SECTION_LABELS[section].toLowerCase()}`, action: 'skip', section }
         ],
       });
       return;
@@ -1444,7 +1433,15 @@ export default function Home() {
   };
 
   const handleChatOption = async (opt) => {
-    if (!opt || !opt.action) return;
+    if (opt.action === 'confirm-complete') {
+      setCvCompleted(true);
+      setRightPanelTab('jobs');
+      pushAiMessage({
+        text: '🎉 **CV Edition Confirmed & Completed!** Your final CV is displayed at the center, and matching jobs are listed below.',
+        options: [{ label: 'Download PDF', action: 'download' }]
+      });
+      return;
+    }
     if (opt.action === 'open') { openSectionEditor(opt.section); return; }
     if (opt.action === 'jobs') { setRightPanelTab('jobs'); return; }
     if (opt.action === 'download') { handleDownloadPdf(); return; }
