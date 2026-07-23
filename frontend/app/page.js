@@ -2739,7 +2739,8 @@ ${candidateName}`;
   // Renders AI option buttons + suggestion cards attached to a chat message
   const renderMessageExtras = (msg) => {
     if (!msg.cards && !msg.options && !(msg.suggestions?.length) && !(msg.jobs?.length)
-      && !msg.headerForm && !msg.skillsPicker && !msg.keySkillsPicker && !msg.experienceForm && !msg.expBulletPicker) return null;
+      && !msg.headerForm && !msg.skillsPicker && !msg.keySkillsPicker && !msg.experienceForm && !msg.expBulletPicker
+      && !msg.projectForm && !msg.certificationForm && !msg.achievementForm) return null;
 
     const formInputStyle = {
       width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #cbd5e1', borderRadius: '8px',
