@@ -1143,13 +1143,13 @@ export default function Home() {
   // Every section edit starts with a question asking for the user's real details;
   // the answer is then polished by AI before it lands on the CV.
   const SECTION_QUESTIONS = {
-    summary: "Tell me about yourself — your role, years of experience, main technologies, and one accomplishment you're proud of. I'll polish it into a professional summary.",
-    skills: "List your skills separated by commas — I'll organize them into the skills table.",
-    experience: "Describe your most recent job.\nFirst line: Position | Company | Duration | Location — then one line per thing you did there.",
-    projects: "Describe a project you built.\nFirst line: Project Name | Duration | Tech Stack — then one line per highlight.",
-    education: "What did you study? Give your degree, years, institute, and grade.\nExample: B.Tech CSE (2020 – 2024) • NIT Calicut • CGPA 8.5",
-    certifications: "List your certifications or trainings, one per line.",
-    achievements: "List your achievements, one per line.",
+    summary: "Select a role-tailored summary below, or type your own professional summary.",
+    skills: "Pick your technical skills from the categories below, or type custom skills.",
+    experience: "What is your job position, company name, location, and employment duration?",
+    projects: "What is your project title, tech stack, and key highlights?",
+    education: "What is your degree/qualification, institute name, and passing year?",
+    certifications: "What is your certification title, issuing organization, and year?",
+    achievements: "What is your achievement/award title, organization, and year?",
   };
 
   const openSectionEditor = async (section, savedFrom = null) => {
@@ -1473,6 +1473,27 @@ export default function Home() {
       return;
     }
     if (opt.action === 'own') {
+      if (opt.section === 'experience') {
+        pushAiMessage({
+          text: '**What is your job position, company name, location, and employment duration?**',
+          experienceForm: true,
+        });
+        return;
+      }
+      if (opt.section === 'certifications') {
+        pushAiMessage({
+          text: '**What is your certification title, issuing organization, and year?**',
+          certificationForm: true,
+        });
+        return;
+      }
+      if (opt.section === 'achievements') {
+        pushAiMessage({
+          text: '**What is your achievement/award title, organization, and year?**',
+          achievementForm: true,
+        });
+        return;
+      }
       setSectionEditFlow({ section: opt.section, stage: 'await-own' });
       pushAiMessage({ text: `Sure — ${SECTION_QUESTIONS[opt.section] || `type your ${SECTION_LABELS[opt.section]} below and hit send.`}` });
       return;
@@ -2799,18 +2820,18 @@ ${candidateName}`;
         {msg.experienceForm && (
           <form onSubmit={saveExperienceForm} style={formCardStyle}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.55rem' }}>
-              <div><label style={formLabelStyle}>Position</label>
-                <input name="position" placeholder="e.g. Software Developer" defaultValue={cvDraftData?.position || ''} style={formInputStyle} /></div>
-              <div><label style={formLabelStyle}>Company</label>
+              <div><label style={formLabelStyle}>Position / Job Title</label>
+                <input name="position" placeholder="e.g. MERN Stack Developer" defaultValue={cvDraftData?.position || ''} style={formInputStyle} /></div>
+              <div><label style={formLabelStyle}>Company Name</label>
                 <input name="company" required placeholder="e.g. TechNova Solutions" style={formInputStyle} /></div>
-              <div style={{ gridColumn: '1 / -1' }}><label style={formLabelStyle}>Location</label>
-                <input name="place" placeholder="e.g. Kochi, Kerala" style={formInputStyle} /></div>
-              <div><label style={formLabelStyle}>From</label>
+              <div style={{ gridColumn: '1 / -1' }}><label style={formLabelStyle}>Company Location</label>
+                <input name="place" placeholder="e.g. Kochi, Kerala, India" style={formInputStyle} /></div>
+              <div><label style={formLabelStyle}>Start Date (From)</label>
                 <div style={{ display: 'flex', gap: '0.3rem' }}>
                   <select name="fromMonth" defaultValue="Jan" style={{ ...formInputStyle, padding: '0.4rem 0.3rem' }}>{MONTHS.map(m => <option key={m}>{m}</option>)}</select>
                   <select name="fromYear" defaultValue="2024" style={{ ...formInputStyle, padding: '0.4rem 0.3rem' }}>{YEARS.map(y => <option key={y}>{y}</option>)}</select>
                 </div></div>
-              <div><label style={formLabelStyle}>To</label>
+              <div><label style={formLabelStyle}>End Date (To)</label>
                 <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
                   <select name="toMonth" defaultValue="Dec" style={{ ...formInputStyle, padding: '0.4rem 0.3rem' }}>{MONTHS.map(m => <option key={m}>{m}</option>)}</select>
                   <select name="toYear" defaultValue="2026" style={{ ...formInputStyle, padding: '0.4rem 0.3rem' }}>{YEARS.map(y => <option key={y}>{y}</option>)}</select>
@@ -2832,9 +2853,71 @@ ${candidateName}`;
             )}
             <div style={{ marginBottom: '0.55rem' }}>
               <label style={formLabelStyle}>Your own points (optional, one per line)</label>
-              <textarea name="ownBullets" rows={2} placeholder="e.g. Built the payments module used by 10k users" style={{ ...formInputStyle, resize: 'vertical' }} />
+              <textarea name="ownBullets" rows={2} placeholder="e.g. Built features using React and Node.js for 10k users" style={{ ...formInputStyle, resize: 'vertical' }} />
             </div>
             <button type="submit" style={saveBtnStyle}>Save Experience → Next</button>
+          </form>
+        )}
+        {msg.certificationForm && (
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.target;
+            const certName = form.certName.value.trim();
+            const certOrg = form.certOrg.value.trim();
+            const certYear = form.certYear.value.trim();
+            if (!certName) return;
+            const entry = `${certName}${certOrg ? ` – ${certOrg}` : ''}${certYear ? ` (${certYear})` : ''}`;
+            setCvDraftData(prev => ({ ...prev, certifications: [entry, ...(Array.isArray(prev.certifications) ? prev.certifications : [])] }));
+            handleSectionProgress('certifications');
+            advanceGuided('certifications');
+          }} style={formCardStyle}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.55rem' }}>
+              <div>
+                <label style={formLabelStyle}>Certification Title / Name</label>
+                <input name="certName" required placeholder="e.g. AWS Certified Solutions Architect" style={formInputStyle} />
+              </div>
+              <div>
+                <label style={formLabelStyle}>Issuing Organization / Platform</label>
+                <input name="certOrg" placeholder="e.g. Amazon Web Services / Coursera" style={formInputStyle} />
+              </div>
+              <div>
+                <label style={formLabelStyle}>Year Obtained</label>
+                <select name="certYear" defaultValue="2024" style={formInputStyle}>
+                  {YEARS.map(y => <option key={y}>{y}</option>)}
+                </select>
+              </div>
+            </div>
+            <button type="submit" style={saveBtnStyle}>Save Certification → Next</button>
+          </form>
+        )}
+        {msg.achievementForm && (
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.target;
+            const title = form.achieveTitle.value.trim();
+            const org = form.achieveOrg.value.trim();
+            const year = form.achieveYear.value.trim();
+            if (!title) return;
+            const entry = `${title}${org ? ` – ${org}` : ''}${year ? ` (${year})` : ''}`;
+            setCvDraftData(prev => ({ ...prev, achievements: [entry, ...(Array.isArray(prev.achievements) ? prev.achievements : [])] }));
+            handleSectionProgress('achievements');
+            advanceGuided('achievements');
+          }} style={formCardStyle}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.55rem' }}>
+              <div>
+                <label style={formLabelStyle}>Achievement Title / Award</label>
+                <input name="achieveTitle" required placeholder="e.g. 1st Place - National Hackathon Winner" style={formInputStyle} />
+              </div>
+              <div>
+                <label style={formLabelStyle}>Organization / Event</label>
+                <input name="achieveOrg" placeholder="e.g. Smart India Hackathon / TechCorp" style={formInputStyle} />
+              </div>
+              <div>
+                <label style={formLabelStyle}>Year / Details</label>
+                <input name="achieveYear" placeholder="e.g. 2024 • Ranked 1st among 500+ teams" style={formInputStyle} />
+              </div>
+            </div>
+            <button type="submit" style={saveBtnStyle}>Save Achievement → Next</button>
           </form>
         )}
         {msg.jobs && msg.jobs.length > 0 && (
