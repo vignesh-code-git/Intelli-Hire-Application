@@ -1,6 +1,6 @@
 "use client";
-import Home from "../page";
+import MainApp from "../MainApp";
 
 export default function WorkplacePage() {
-  return <Home />;
+  return <MainApp />;
 }
