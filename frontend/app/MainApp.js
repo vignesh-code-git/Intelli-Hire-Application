@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { FiHome, FiFileText, FiBriefcase, FiLock } from "react-icons/fi";
 import { ALTERNATIVE_SUMMARIES, ALTERNATIVE_EXPERIENCES, ALTERNATIVE_ACHIEVEMENTS, SKILLS_DB } from "./cvData";
 import {
   getRoleType, SUMMARY_BANK, EXPERIENCE_BANK, EDUCATION_BANK,
@@ -1155,17 +1156,17 @@ export default function Home() {
       guidedRef.current = false;
       setHighlightedSection(null);
       pushAiMessage({
-        text: "**🎉 Your CV build is complete!** All sections have been formatted and tailored to your target role.\n\n" +
+        text: "**Your CV build is complete!** All sections have been formatted and tailored to your target role.\n\n" +
           "Would you like to **Confirm & Complete your CV** or **Edit any section**?",
         options: [
-          { label: '✅ Confirm Edition & Complete CV', action: 'confirm-complete' },
-          { label: '✏️ Edit Professional Summary', action: 'open', section: 'summary' },
-          { label: '✏️ Edit Technical Skills', action: 'open', section: 'skills' },
-          { label: '✏️ Edit Work Experience', action: 'open', section: 'experience' },
-          { label: '✏️ Edit Projects', action: 'open', section: 'projects' },
-          { label: '✏️ Edit Education', action: 'open', section: 'education' },
-          { label: '✏️ Edit Certifications', action: 'open', section: 'certifications' },
-          { label: '✏️ Edit Achievements', action: 'open', section: 'achievements' },
+          { label: 'Confirm Edition & Complete CV', action: 'confirm-complete' },
+          { label: 'Edit Professional Summary', action: 'open', section: 'summary' },
+          { label: 'Edit Technical Skills', action: 'open', section: 'skills' },
+          { label: 'Edit Work Experience', action: 'open', section: 'experience' },
+          { label: 'Edit Projects', action: 'open', section: 'projects' },
+          { label: 'Edit Education', action: 'open', section: 'education' },
+          { label: 'Edit Certifications', action: 'open', section: 'certifications' },
+          { label: 'Edit Achievements', action: 'open', section: 'achievements' },
         ],
       });
       return;
@@ -1240,13 +1241,13 @@ export default function Home() {
         text: `${intro} — **Which category does your project belong to?**`,
         hint: 'Select a project category below, or tap Custom Project to type your own:',
         options: [
-          { label: '🛒 E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
-          { label: '💼 CRM System', action: 'proj-category', category: 'crm', section: 'projects' },
-          { label: '🤖 AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
-          { label: '📊 SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
-          { label: '💻 Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
-          { label: '📱 Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
-          { label: '✏️ Custom Project (Blank Form)', action: 'proj-category', category: 'custom', section: 'projects' },
+          { label: 'E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
+          { label: 'CRM System', action: 'proj-category', category: 'crm', section: 'projects' },
+          { label: 'AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
+          { label: 'SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
+          { label: 'Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
+          { label: 'Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
+          { label: 'Custom Project (Blank Form)', action: 'proj-category', category: 'custom', section: 'projects' },
           { label: 'Skip Projects', action: 'skip', section: 'projects' },
         ],
       });
@@ -1534,8 +1535,14 @@ export default function Home() {
     if (opt.action === 'confirm-complete') {
       setCvCompleted(true);
       setRightPanelTab('jobs');
+      // Route to the Job Listings page in-place (preserves the CV state — a
+      // router.push would remount MainApp and wipe it).
+      setCurrentRoute('joblists');
+      if (pathname !== '/joblists') {
+        window.history.replaceState(null, '', '/joblists');
+      }
       pushAiMessage({
-        text: '🎉 **CV Edition Confirmed & Completed!** Your final CV is displayed at the center, and matching jobs are listed below.',
+        text: '**CV Edition Confirmed & Completed!** Your final CV is displayed at the center, and matching jobs are listed below.',
         options: [{ label: 'Download PDF', action: 'download' }]
       });
       return;
@@ -1827,13 +1834,13 @@ export default function Home() {
           text: '**Which category does your project belong to?**',
           hint: 'Select a project category below, or tap Custom Project to type your own:',
           options: [
-            { label: '🛒 E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
-            { label: '💼 CRM System', action: 'proj-category', category: 'crm', section: 'projects' },
-            { label: '🤖 AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
-            { label: '📊 SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
-            { label: '💻 Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
-            { label: '📱 Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
-            { label: '✏️ Custom Project (Blank Form)', action: 'proj-category', category: 'custom', section: 'projects' },
+            { label: 'E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
+            { label: 'CRM System', action: 'proj-category', category: 'crm', section: 'projects' },
+            { label: 'AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
+            { label: 'SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
+            { label: 'Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
+            { label: 'Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
+            { label: 'Custom Project (Blank Form)', action: 'proj-category', category: 'custom', section: 'projects' },
           ],
         });
         return;
@@ -2463,7 +2470,7 @@ export default function Home() {
           setIsOptimizing(false);
           // If a guided CV question was pending, gently resume it after answering
           const pendingQuestion = headerQuestionIdx !== null
-            ? `\n\n↩️ **Back to your CV — ${getHeaderQuestionText(headerQuestionIdx)}**`
+            ? `\n\n**Back to your CV — ${getHeaderQuestionText(headerQuestionIdx)}**`
             : "";
           setChatMessages(prev => [...prev, {
             id: Date.now() + 2, sender: "ai", text: data.reply + pendingQuestion,
@@ -3053,13 +3060,13 @@ ${candidateName}`;
           text: '**Project saved!** Which category does your next project belong to?',
           hint: 'Select a project category below for your next project:',
           options: [
-            { label: '🛒 E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
-            { label: '💼 CRM System', action: 'proj-category', category: 'crm', section: 'projects' },
-            { label: '🤖 AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
-            { label: '📊 SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
-            { label: '💻 Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
-            { label: '📱 Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
-            { label: '✏️ Custom Project (Blank Form)', action: 'proj-category', category: 'custom', section: 'projects' },
+            { label: 'E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
+            { label: 'CRM System', action: 'proj-category', category: 'crm', section: 'projects' },
+            { label: 'AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
+            { label: 'SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
+            { label: 'Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
+            { label: 'Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
+            { label: 'Custom Project (Blank Form)', action: 'proj-category', category: 'custom', section: 'projects' },
           ],
         });
       } else {
@@ -3318,7 +3325,7 @@ ${candidateName}`;
           <form onSubmit={(e) => handleSaveProject(e, false)} style={formCardStyle}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
               <span style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--accent-blue)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                🚀 Project Details
+                Project Details
               </span>
               {msg.projectDefaults?.category && (
                 <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '50px', padding: '0.15rem 0.6rem' }}>
@@ -3516,10 +3523,10 @@ ${candidateName}`;
                   padding: '0.48rem 0.95rem', borderRadius: '50px', border: '1px solid #2563eb',
                   background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#ffffff',
                   fontSize: '0.84rem', fontWeight: 700, cursor: 'pointer',
-                  boxShadow: '0 3px 10px rgba(37,99,235,0.25)', transition: 'all 0.15s ease',
-                  display: 'inline-flex', alignItems: 'center', gap: '0.35rem'
+                  transition: 'all 0.15s ease',
+                  display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
                 }}>
-                <span>💼</span> {s}
+                <FiBriefcase style={{ width: '0.85rem', height: '0.85rem', flexShrink: 0 }} /> {s}
               </button>
             ))}
           </div>
@@ -4205,13 +4212,14 @@ ${candidateName}`;
 
       <nav className="app-nav" style={{ display: 'flex', gap: '0.4rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '50px' }}>
         {[
-          { key: 'home', label: '🏠 Home', isDisabled: false },
-          { key: 'workplace', label: '🚀 IntelliHire Workplace', isDisabled: false },
-          { key: 'joblists', label: '💼 Job Listings', isDisabled: !cvCompleted }
+          { key: 'home', label: 'Home', Icon: FiHome, isDisabled: false },
+          { key: 'workplace', label: 'IntelliHire Workplace', Icon: FiFileText, isDisabled: false },
+          { key: 'joblists', label: 'Job Listings', Icon: FiBriefcase, isDisabled: !cvCompleted }
         ].map((route) => {
           const activeRouteKey = pathname === '/intellihire-work-place' ? 'workplace' : pathname === '/joblists' ? 'joblists' : 'home';
           const active = activeRouteKey === route.key;
           const disabled = route.isDisabled;
+          const Icon = route.Icon;
           return (
             <button
               key={route.key}
@@ -4221,16 +4229,19 @@ ${candidateName}`;
               onClick={() => navigateToRoute(route.key)}
               title={disabled ? "Complete your CV in Workplace first to unlock Job Listings!" : route.label}
               style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
                 padding: '0.45rem 1rem', borderRadius: '50px', border: 'none',
                 background: active ? 'var(--accent-blue)' : 'transparent',
                 color: active ? '#ffffff' : disabled ? '#cbd5e1' : '#64748b',
                 fontSize: '0.82rem', fontWeight: active ? 750 : 650,
                 cursor: disabled ? 'not-allowed' : 'pointer',
                 opacity: disabled ? 0.6 : 1,
-                transition: 'all 0.18s ease', boxShadow: active ? '0 2px 8px rgba(37,99,235,0.22)' : 'none'
+                transition: 'all 0.18s ease'
               }}
             >
-              {route.label}{disabled ? ' 🔒' : ''}
+              <Icon style={{ width: '1rem', height: '1rem', flexShrink: 0 }} />
+              <span>{route.label}</span>
+              {disabled ? <FiLock style={{ width: '0.8rem', height: '0.8rem', flexShrink: 0 }} /> : null}
             </button>
           );
         })}
@@ -4608,12 +4619,12 @@ ${candidateName}`;
               {/* Composer — transparent input with a thin border; upload/mic/send aligned to input height */}
               <div style={{ padding: '1rem 1.5rem 1.25rem 1.5rem', backgroundColor: 'transparent', borderTop: '1px solid var(--border-color)' }}>
                 <form onSubmit={handleSendChatMessage} className="ih-composer" style={{ display: 'flex', alignItems: 'flex-end', gap: '0.55rem' }}>
-                  <button type="button" onClick={() => setShowUploadModal(true)} title="Upload CV"
+                  <button type="button" onClick={() => setShowUploadModal(true)} title="Upload CV" className="wp-upload-btn"
                     style={{ flexShrink: 0, height: '54px', padding: '0 0.9rem', borderRadius: '12px', border: '1px solid #cbd5e1', background: 'transparent', color: 'var(--accent-blue)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1rem', height: '1rem', strokeWidth: 2.3 }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1rem', height: '1rem', strokeWidth: 2.3, flexShrink: 0 }}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
-                    Upload CV
+                    <span className="wp-upload-text">Upload CV</span>
                   </button>
                   <textarea
                     value={chatInput}
