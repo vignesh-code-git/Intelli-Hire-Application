@@ -940,8 +940,49 @@ export default function Home() {
   const dropdownRef = useRef(null);
   const [currentRoute, setCurrentRoute] = useState('home'); // 'home' | 'workplace' | 'joblists'
 
+  const ROUTE_URLS = {
+    home: '#/',
+    workplace: '#/intellihire-work-place',
+    joblists: '#/joblists'
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash || '#/';
+      if (hash.includes('intellihire-work-place')) {
+        setCurrentRoute('workplace');
+        setIsInitialState(false);
+        setCvCompleted(false);
+      } else if (hash.includes('joblists')) {
+        if (cvCompleted) {
+          setCurrentRoute('joblists');
+          setIsInitialState(false);
+          setCvCompleted(true);
+        } else {
+          window.location.hash = '#/intellihire-work-place';
+        }
+      } else {
+        setCurrentRoute('home');
+        setIsInitialState(true);
+        setCvCompleted(false);
+      }
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [cvCompleted]);
+
   const navigateToRoute = (routeKey) => {
+    if (routeKey === 'joblists' && !cvCompleted) {
+      alert("Please complete your CV in IntelliHire Workplace first to unlock Job Listings!");
+      return;
+    }
     setCurrentRoute(routeKey);
+    if (typeof window !== 'undefined') {
+      window.location.hash = ROUTE_URLS[routeKey] || '#/';
+    }
+
     if (routeKey === 'home') {
       setIsInitialState(true);
       setCvCompleted(false);
@@ -4181,25 +4222,30 @@ ${candidateName}`;
 
       <nav style={{ display: 'flex', gap: '0.4rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '50px' }}>
         {[
-          { key: 'home', label: '🏠 Home' },
-          { key: 'workplace', label: '🚀 IntelliHire Workplace' },
-          { key: 'joblists', label: '💼 Job Listings' }
+          { key: 'home', label: '🏠 Home', isDisabled: false },
+          { key: 'workplace', label: '🚀 IntelliHire Workplace', isDisabled: false },
+          { key: 'joblists', label: '💼 Job Listings', isDisabled: !cvCompleted }
         ].map((route) => {
-          const active = currentRoute === route.key || (route.key === 'home' && isInitialState) || (route.key === 'workplace' && !isInitialState && !cvCompleted) || (route.key === 'joblists' && !isInitialState && cvCompleted);
+          const active = currentRoute === route.key;
+          const disabled = route.isDisabled;
           return (
             <button
               key={route.key}
               type="button"
+              disabled={disabled}
               onClick={() => navigateToRoute(route.key)}
+              title={disabled ? "Complete your CV in Workplace first to unlock Job Listings!" : route.label}
               style={{
                 padding: '0.45rem 1rem', borderRadius: '50px', border: 'none',
                 background: active ? 'var(--accent-blue)' : 'transparent',
-                color: active ? '#ffffff' : '#64748b',
-                fontSize: '0.82rem', fontWeight: active ? 750 : 650, cursor: 'pointer',
+                color: active ? '#ffffff' : disabled ? '#cbd5e1' : '#64748b',
+                fontSize: '0.82rem', fontWeight: active ? 750 : 650,
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                opacity: disabled ? 0.6 : 1,
                 transition: 'all 0.18s ease', boxShadow: active ? '0 2px 8px rgba(37,99,235,0.22)' : 'none'
               }}
             >
-              {route.label}
+              {route.label}{disabled ? ' 🔒' : ''}
             </button>
           );
         })}
