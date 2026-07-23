@@ -573,11 +573,13 @@ const CV_TEMPLATES = {
 };
 const POSITION_SKILLS_REC = {
   frontend: ["React.js", "Next.js", "TypeScript", "JavaScript (ES6+)", "HTML5", "CSS3", "Tailwind CSS", "Redux Toolkit", "Vite", "Zustand", "Bootstrap 5", "Material UI", "REST API", "GraphQL", "Web Performance", "Jest"],
-  backend: ["Python", "Django", "FastAPI", "Node.js", "Express.js", "PostgreSQL", "MongoDB", "MySQL", "Redis", "REST APIs", "GraphQL", "JWT Auth", "Docker", "Microservices", "Celery", "System Design"],
-  fullstack: ["React.js", "Next.js", "Node.js", "TypeScript", "Python", "Django", "PostgreSQL", "MongoDB", "Tailwind CSS", "REST APIs", "Docker", "Express.js", "GraphQL", "Redux", "CI/CD", "Vercel / Render"],
+  mern: ["React.js", "Node.js", "Express.js", "MongoDB", "Next.js", "TypeScript", "JavaScript (ES6+)", "HTML5", "CSS3", "Tailwind CSS", "REST APIs", "Redux Toolkit", "JWT Auth", "Vite", "Docker", "GraphQL"],
+  backend_node: ["Node.js", "Express.js", "PostgreSQL", "MongoDB", "TypeScript", "REST APIs", "GraphQL", "JWT Auth", "Redis", "Docker", "Microservices", "System Design", "SQL", "Jest", "Git"],
+  backend_python: ["Python", "Django", "FastAPI", "PostgreSQL", "MongoDB", "MySQL", "Redis", "REST APIs", "GraphQL", "JWT Auth", "Docker", "Microservices", "Celery", "System Design", "SQL", "Git"],
+  fullstack: ["React.js", "Next.js", "Node.js", "TypeScript", "Express.js", "PostgreSQL", "MongoDB", "Tailwind CSS", "REST APIs", "Docker", "GraphQL", "Redux Toolkit", "JWT Auth", "Vite", "CI/CD", "Git"],
   devops: ["Docker", "Kubernetes", "Terraform", "Ansible", "Jenkins", "GitHub Actions", "AWS (EC2/S3)", "GCP", "Linux", "CI/CD Pipelines", "Prometheus", "Grafana", "Bash Scripting", "Nginx", "Helm", "Cloud Security"],
   mobile: ["React Native", "Flutter", "Swift", "Kotlin", "Dart", "Firebase", "iOS Dev", "Android Studio", "REST APIs", "Redux", "Xcode", "Mobile UI/UX", "SQLite", "Push Notifications", "App Store"],
-  qa: ["Selenium", "Cypress", "Playwright", "Jest", "Postman", "JUnit", "API Testing", "Automation Testing", "Manual Testing", "Jira", "CI/CD", "Python", "TestNG", "Load Testing", "Regression Testing"],
+  qa: ["Selenium", "Cypress", "Playwright", "Jest", "Postman", "JUnit", "API Testing", "Automation Testing", "Manual Testing", "Jira", "CI/CD", "TestNG", "Load Testing", "Regression Testing"],
   product: ["Product Management", "Agile/Scrum", "Jira", "PRD Writing", "Roadmap Planning", "Wireframing", "A/B Testing", "Market Research", "SQL Analytics", "Confluence", "User Stories", "KPI Tracking", "Prioritization"],
   security: ["Vulnerability Assessment", "Wireshark", "Nmap", "Metasploit", "SIEM", "Firewalls", "Network Security", "OWASP Top 10", "Penetration Testing", "Linux Security", "Cryptography", "Incident Response", "IAM"],
   data: ["Python", "Pandas", "NumPy", "Scikit-Learn", "PyTorch", "TensorFlow", "Apache Spark", "SQL Analytics", "Data Pipelines", "Tableau", "Power BI", "Machine Learning", "Deep Learning", "Data Visualization", "ETL", "BigQuery"],
@@ -586,15 +588,32 @@ const POSITION_SKILLS_REC = {
 
 const getRecommendedSkills = (position = "") => {
   const posLower = position.toLowerCase();
-  if (posLower.includes("full") || posLower.includes("stack")) {
-    return POSITION_SKILLS_REC.fullstack;
+
+  // MERN / Node / Express — strictly JavaScript/TypeScript web stack (NO Python)
+  if (posLower.includes("mern") || posLower.includes("node") || posLower.includes("express")) {
+    return POSITION_SKILLS_REC.mern;
   }
+
+  // Python Backend — specifically Python / Django / FastAPI roles
+  if (posLower.includes("python") || posLower.includes("django") || posLower.includes("fastapi")) {
+    return POSITION_SKILLS_REC.backend_python;
+  }
+
+  // General Backend (if not explicitly python/django)
+  if (posLower.includes("backend")) {
+    return POSITION_SKILLS_REC.backend_node;
+  }
+
+  // Frontend / React / UI
   if (posLower.includes("frontend") || posLower.includes("react") || posLower.includes("ui") || posLower.includes("ux") || posLower.includes("web developer")) {
     return POSITION_SKILLS_REC.frontend;
   }
-  if (posLower.includes("backend") || posLower.includes("django") || posLower.includes("fastapi") || posLower.includes("node") || posLower.includes("python engineer")) {
-    return POSITION_SKILLS_REC.backend;
+
+  // Full Stack (JS/TS stack by default — NO Python)
+  if (posLower.includes("full") || posLower.includes("stack")) {
+    return POSITION_SKILLS_REC.fullstack;
   }
+
   if (posLower.includes("mobile") || posLower.includes("ios") || posLower.includes("android") || posLower.includes("flutter") || posLower.includes("react native")) {
     return POSITION_SKILLS_REC.mobile;
   }
@@ -1616,7 +1635,7 @@ export default function Home() {
         } else {
           replyText = "**What role are you targeting?**";
           replyHint = 'Pick a job position below, or type your own';
-          replySuggestions = ['Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 'Data Analyst', 'DevOps Engineer', 'Mobile App Developer'];
+          replySuggestions = ['Frontend Developer', 'MERN Stack Developer', 'Backend Engineer', 'Full Stack Developer', 'Data Analyst', 'DevOps Engineer'];
           setHeaderQuestionIdx(1);
         }
       }
