@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { ALTERNATIVE_SUMMARIES, ALTERNATIVE_EXPERIENCES, ALTERNATIVE_ACHIEVEMENTS, SKILLS_DB } from "./cvData";
 import {
   getRoleType, SUMMARY_BANK, EXPERIENCE_BANK, EDUCATION_BANK,
@@ -939,38 +940,24 @@ export default function Home() {
   const optimizedCardRef = useRef(null);
   const dropdownRef = useRef(null);
   const [currentRoute, setCurrentRoute] = useState('home'); // 'home' | 'workplace' | 'joblists'
-
-  const ROUTE_PATHS = {
-    home: '/',
-    workplace: '/intellihire-work-place',
-    joblists: '/joblists'
-  };
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      if (path.includes('intellihire-work-place')) {
-        setCurrentRoute('workplace');
-        setIsInitialState(false);
-        setCvCompleted(false);
-      } else if (path.includes('joblists')) {
-        if (cvCompleted) {
-          setCurrentRoute('joblists');
-          setIsInitialState(false);
-          setCvCompleted(true);
-        } else {
-          window.history.replaceState(null, '', '/intellihire-work-place');
-          setCurrentRoute('workplace');
-          setIsInitialState(false);
-          setCvCompleted(false);
-        }
-      } else {
-        setCurrentRoute('home');
-        setIsInitialState(true);
-        setCvCompleted(false);
-      }
+    if (pathname === '/intellihire-work-place') {
+      setCurrentRoute('workplace');
+      setIsInitialState(false);
+      setCvCompleted(false);
+    } else if (pathname === '/joblists') {
+      setCurrentRoute('joblists');
+      setIsInitialState(false);
+      setCvCompleted(true);
+    } else {
+      setCurrentRoute('home');
+      setIsInitialState(true);
+      setCvCompleted(false);
     }
-  }, []);
+  }, [pathname]);
 
   const navigateToRoute = (routeKey) => {
     if (routeKey === 'joblists' && !cvCompleted) {
@@ -978,20 +965,19 @@ export default function Home() {
       return;
     }
     setCurrentRoute(routeKey);
-    const targetPath = ROUTE_PATHS[routeKey] || '/';
-    if (typeof window !== 'undefined') {
-      window.history.pushState(null, '', targetPath);
-    }
 
     if (routeKey === 'home') {
       setIsInitialState(true);
       setCvCompleted(false);
+      if (pathname !== '/') router.push('/');
     } else if (routeKey === 'workplace') {
       setIsInitialState(false);
       setCvCompleted(false);
+      if (pathname !== '/intellihire-work-place') router.push('/intellihire-work-place');
     } else if (routeKey === 'joblists') {
       setIsInitialState(false);
       setCvCompleted(true);
+      if (pathname !== '/joblists') router.push('/joblists');
     }
   };
 
@@ -4226,7 +4212,8 @@ ${candidateName}`;
           { key: 'workplace', label: '🚀 IntelliHire Workplace', isDisabled: false },
           { key: 'joblists', label: '💼 Job Listings', isDisabled: !cvCompleted }
         ].map((route) => {
-          const active = currentRoute === route.key;
+          const activeRouteKey = pathname === '/intellihire-work-place' ? 'workplace' : pathname === '/joblists' ? 'joblists' : 'home';
+          const active = activeRouteKey === route.key;
           const disabled = route.isDisabled;
           return (
             <button
