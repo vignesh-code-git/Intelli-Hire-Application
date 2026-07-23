@@ -688,6 +688,7 @@ export default function Home() {
   };
 
   const handleSectionClick = (sectionName) => {
+    setInlineEditSection(sectionName);
     openSectionEditor(sectionName);
   };
 
@@ -948,6 +949,7 @@ export default function Home() {
   const KEY_SKILLS_LIMIT = 6;
   const [keySkills, setKeySkills] = useState([]);
   const [customProjBulletRows, setCustomProjBulletRows] = useState([0]);
+  const [inlineEditSection, setInlineEditSection] = useState(null);
   const toggleKeySkill = (skill) => {
     setKeySkills(prev => {
       let next;
@@ -3014,6 +3016,51 @@ ${candidateName}`;
       }
     };
 
+    const handleSaveCertification = (e, addAnother = false) => {
+      e.preventDefault();
+      const form = e.target.closest('form');
+      if (!form) return;
+      const certName = form.certName.value.trim();
+      const certOrg = form.certOrg.value.trim();
+      const certYear = form.certYear.value.trim();
+      if (!certName) return;
+      const entry = `${certName}${certOrg ? ` – ${certOrg}` : ''}${certYear ? ` (${certYear})` : ''}`;
+      setCvDraftData(prev => ({ ...prev, certifications: [entry, ...(Array.isArray(prev.certifications) ? prev.certifications : [])] }));
+      handleSectionProgress('certifications');
+
+      if (addAnother) {
+        pushAiMessage({
+          text: '**Certification saved!** Enter details for your next certification below:',
+          certificationForm: true,
+        });
+      } else {
+        advanceGuided('certifications');
+      }
+    };
+
+    const handleSaveAchievement = (e, addAnother = false) => {
+      e.preventDefault();
+      const form = e.target.closest('form');
+      if (!form) return;
+      const title = form.achieveTitle.value.trim();
+      const org = form.achieveOrg.value.trim();
+      const year = form.achieveYear.value.trim();
+      const desc = form.achieveDesc?.value.trim() || '';
+      if (!title) return;
+      const entry = `${title}${org ? ` – ${org}` : ''}${year ? ` (${year})` : ''}${desc ? ` • ${desc}` : ''}`;
+      setCvDraftData(prev => ({ ...prev, achievements: [entry, ...(Array.isArray(prev.achievements) ? prev.achievements : [])] }));
+      handleSectionProgress('achievements');
+
+      if (addAnother) {
+        pushAiMessage({
+          text: '**Achievement saved!** Enter details for your next achievement below:',
+          achievementForm: true,
+        });
+      } else {
+        advanceGuided('achievements');
+      }
+    };
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', maxWidth: '92%', marginTop: '0.1rem' }}>
         {msg.headerForm && (
@@ -3336,21 +3383,10 @@ ${candidateName}`;
           </form>
         )}
         {msg.certificationForm && (
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const form = e.target;
-            const certName = form.certName.value.trim();
-            const certOrg = form.certOrg.value.trim();
-            const certYear = form.certYear.value.trim();
-            if (!certName) return;
-            const entry = `${certName}${certOrg ? ` – ${certOrg}` : ''}${certYear ? ` (${certYear})` : ''}`;
-            setCvDraftData(prev => ({ ...prev, certifications: [entry, ...(Array.isArray(prev.certifications) ? prev.certifications : [])] }));
-            handleSectionProgress('certifications');
-            advanceGuided('certifications');
-          }} style={formCardStyle}>
+          <form onSubmit={(e) => handleSaveCertification(e, false)} style={formCardStyle}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.55rem' }}>
               <div>
-                <label style={formLabelStyle}>Certification Title / Name</label>
+                <label style={formLabelStyle}>Certification Title / Name *</label>
                 <input name="certName" required placeholder="e.g. AWS Certified Solutions Architect" style={formInputStyle} />
               </div>
               <div>
@@ -3364,37 +3400,46 @@ ${candidateName}`;
                 </select>
               </div>
             </div>
-            <button type="submit" style={saveBtnStyle}>Save Certification → Next</button>
+            <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button type="submit" style={saveBtnStyle}>Save Certification → Next</button>
+              <button type="button" onClick={(e) => handleSaveCertification(e, true)} style={{
+                padding: '0.48rem 0.95rem', borderRadius: '50px', border: '1px solid #2563eb', background: '#eff6ff',
+                color: '#2563eb', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
+              }}>
+                + Add Another Certification
+              </button>
+            </div>
           </form>
         )}
         {msg.achievementForm && (
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const form = e.target;
-            const title = form.achieveTitle.value.trim();
-            const org = form.achieveOrg.value.trim();
-            const year = form.achieveYear.value.trim();
-            if (!title) return;
-            const entry = `${title}${org ? ` – ${org}` : ''}${year ? ` (${year})` : ''}`;
-            setCvDraftData(prev => ({ ...prev, achievements: [entry, ...(Array.isArray(prev.achievements) ? prev.achievements : [])] }));
-            handleSectionProgress('achievements');
-            advanceGuided('achievements');
-          }} style={formCardStyle}>
+          <form onSubmit={(e) => handleSaveAchievement(e, false)} style={formCardStyle}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.55rem' }}>
               <div>
-                <label style={formLabelStyle}>Achievement Title / Award</label>
-                <input name="achieveTitle" required placeholder="e.g. 1st Place - National Hackathon Winner" style={formInputStyle} />
+                <label style={formLabelStyle}>Achievement Title / Award *</label>
+                <input name="achieveTitle" required placeholder="e.g. 1st Place - Smart India Hackathon Winner" style={formInputStyle} />
               </div>
               <div>
-                <label style={formLabelStyle}>Organization / Event</label>
-                <input name="achieveOrg" placeholder="e.g. Smart India Hackathon / TechCorp" style={formInputStyle} />
+                <label style={formLabelStyle}>Organization / Event Name</label>
+                <input name="achieveOrg" placeholder="e.g. Ministry of Education / TechFest" style={formInputStyle} />
               </div>
               <div>
-                <label style={formLabelStyle}>Year / Details</label>
+                <label style={formLabelStyle}>Year & Details</label>
                 <input name="achieveYear" placeholder="e.g. 2024 • Ranked 1st among 500+ teams" style={formInputStyle} />
               </div>
+              <div>
+                <label style={formLabelStyle}>Description / What You Accomplished</label>
+                <textarea name="achieveDesc" rows={2} placeholder="e.g. Led a 5-member team to build an AI resume builder within 24 hours." style={{ ...formInputStyle, resize: 'vertical' }} />
+              </div>
             </div>
-            <button type="submit" style={saveBtnStyle}>Save Achievement → Next</button>
+            <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button type="submit" style={saveBtnStyle}>Save Achievement → Next</button>
+              <button type="button" onClick={(e) => handleSaveAchievement(e, true)} style={{
+                padding: '0.48rem 0.95rem', borderRadius: '50px', border: '1px solid #2563eb', background: '#eff6ff',
+                color: '#2563eb', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
+              }}>
+                + Add Another Achievement
+              </button>
+            </div>
           </form>
         )}
         {msg.jobs && msg.jobs.length > 0 && (
@@ -3566,20 +3611,31 @@ ${candidateName}`;
 
         {/* Professional Summary */}
         {isSectionVisible('summary') && (
-          <div onClick={() => handleSectionClick('summary')} style={getSectionStyle('summary')}>
+          <div onClick={() => handleSectionClick('summary')} style={{
+            ...getSectionStyle('summary'),
+            ...(inlineEditSection === 'summary' ? { outline: '2px dashed #2563eb', background: '#eff6ff33', borderRadius: '8px', padding: '0.35rem' } : {})
+          }}>
             {renderSectionBadge('summary')}
             <div className="resume-section-header">
               <span>Professional Summary</span>
               <button
                 className="section-edit-icon"
                 onClick={(e) => { e.stopPropagation(); handleSectionClick('summary'); }}
-                title="Edit Professional Summary"
+                title="Click to edit text directly on CV"
               >
                 <EditPencilIcon />
               </button>
             </div>
             {summary ? (
-              <p className="resume-text" style={{ textAlign: "justify", marginBottom: "0.4rem" }}>
+              <p
+                contentEditable={inlineEditSection === 'summary'}
+                suppressContentEditableWarning={true}
+                onBlur={(e) => {
+                  const newText = e.currentTarget.innerText;
+                  setCvDraftData(prev => ({ ...prev, summary: newText }));
+                  setInlineEditSection(null);
+                }}
+                className="resume-text" style={{ textAlign: "justify", marginBottom: "0.4rem", outline: 'none' }}>
                 {isOptimized ? renderWithHighlights(summary) : summary}
               </p>
             ) : emptyNote("Summary")}
@@ -3738,20 +3794,31 @@ ${candidateName}`;
 
         {/* Education */}
         {isSectionVisible('education') && (
-          <div onClick={() => handleSectionClick('education')} style={getSectionStyle('education')}>
+          <div onClick={() => handleSectionClick('education')} style={{
+            ...getSectionStyle('education'),
+            ...(inlineEditSection === 'education' ? { outline: '2px dashed #2563eb', background: '#eff6ff33', borderRadius: '8px', padding: '0.35rem' } : {})
+          }}>
             {renderSectionBadge('education')}
             <div className="resume-section-header">
               <span>Education</span>
               <button
                 className="section-edit-icon"
                 onClick={(e) => { e.stopPropagation(); handleSectionClick('education'); }}
-                title="Edit Education"
+                title="Click to edit text directly on CV"
               >
                 <EditPencilIcon />
               </button>
             </div>
             {(!education || education.length === 0) ? emptyNote("Education") : Array.isArray(education) ? (
-              <ul className="resume-list" style={{ marginTop: "0.1rem", marginBottom: "0.3rem", listStyleType: "none", paddingLeft: 0 }}>
+              <ul
+                contentEditable={inlineEditSection === 'education'}
+                suppressContentEditableWarning={true}
+                onBlur={(e) => {
+                  const newText = e.currentTarget.innerText;
+                  setCvDraftData(prev => ({ ...prev, education: newText }));
+                  setInlineEditSection(null);
+                }}
+                className="resume-list" style={{ marginTop: "0.1rem", marginBottom: "0.3rem", listStyleType: "none", paddingLeft: 0, outline: 'none' }}>
                 {education.map((edu, idx) => (
                   <li key={idx} className="resume-text" style={{ marginBottom: "0.25rem" }}>
                     {isOptimized ? renderWithHighlights(edu) : edu}
@@ -3759,7 +3826,15 @@ ${candidateName}`;
                 ))}
               </ul>
             ) : (
-              <p className="resume-text" style={{ marginBottom: "0.4rem" }}>
+              <p
+                contentEditable={inlineEditSection === 'education'}
+                suppressContentEditableWarning={true}
+                onBlur={(e) => {
+                  const newText = e.currentTarget.innerText;
+                  setCvDraftData(prev => ({ ...prev, education: newText }));
+                  setInlineEditSection(null);
+                }}
+                className="resume-text" style={{ marginBottom: "0.4rem", outline: 'none' }}>
                 {isOptimized ? renderWithHighlights(education) : education}
               </p>
             )}
@@ -3768,20 +3843,31 @@ ${candidateName}`;
 
         {/* Certifications & Training */}
         {isSectionVisible('certifications') && (
-          <div onClick={() => handleSectionClick('certifications')} style={getSectionStyle('certifications')}>
+          <div onClick={() => handleSectionClick('certifications')} style={{
+            ...getSectionStyle('certifications'),
+            ...(inlineEditSection === 'certifications' ? { outline: '2px dashed #2563eb', background: '#eff6ff33', borderRadius: '8px', padding: '0.35rem' } : {})
+          }}>
             {renderSectionBadge('certifications')}
             <div className="resume-section-header">
               <span>Certifications & Training</span>
               <button
                 className="section-edit-icon"
                 onClick={(e) => { e.stopPropagation(); handleSectionClick('certifications'); }}
-                title="Edit Certifications & Training"
+                title="Click to edit text directly on CV"
               >
                 <EditPencilIcon />
               </button>
             </div>
             {certifications.length === 0 ? emptyNote("Certifications") : (
-            <ul className="resume-list" style={{ marginBottom: "0.4rem" }}>
+            <ul
+              contentEditable={inlineEditSection === 'certifications'}
+              suppressContentEditableWarning={true}
+              onBlur={(e) => {
+                const lines = e.currentTarget.innerText.split('\n').map(l => l.trim()).filter(Boolean);
+                setCvDraftData(prev => ({ ...prev, certifications: lines }));
+                setInlineEditSection(null);
+              }}
+              className="resume-list" style={{ marginBottom: "0.4rem", outline: 'none' }}>
               {certifications.map((cert, idx) => (
                 <li key={idx}>{isOptimized ? renderWithHighlights(cert) : cert}</li>
               ))}
@@ -3792,20 +3878,31 @@ ${candidateName}`;
 
         {/* Achievements */}
         {isSectionVisible('achievements') && (
-          <div onClick={() => handleSectionClick('achievements')} style={getSectionStyle('achievements')}>
+          <div onClick={() => handleSectionClick('achievements')} style={{
+            ...getSectionStyle('achievements'),
+            ...(inlineEditSection === 'achievements' ? { outline: '2px dashed #2563eb', background: '#eff6ff33', borderRadius: '8px', padding: '0.35rem' } : {})
+          }}>
             {renderSectionBadge('achievements')}
             <div className="resume-section-header">
               <span>Achievements</span>
               <button
                 className="section-edit-icon"
                 onClick={(e) => { e.stopPropagation(); handleSectionClick('achievements'); }}
-                title="Edit Achievements"
+                title="Click to edit text directly on CV"
               >
                 <EditPencilIcon />
               </button>
             </div>
             {achievements.length === 0 ? emptyNote("Achievements") : (
-            <ul className="resume-list" style={{ marginBottom: "0.4rem" }}>
+            <ul
+              contentEditable={inlineEditSection === 'achievements'}
+              suppressContentEditableWarning={true}
+              onBlur={(e) => {
+                const lines = e.currentTarget.innerText.split('\n').map(l => l.trim()).filter(Boolean);
+                setCvDraftData(prev => ({ ...prev, achievements: lines }));
+                setInlineEditSection(null);
+              }}
+              className="resume-list" style={{ marginBottom: "0.4rem", outline: 'none' }}>
               {achievements.map((ach, idx) => (
                 <li key={idx}>{isOptimized ? renderWithHighlights(ach) : ach}</li>
               ))}
