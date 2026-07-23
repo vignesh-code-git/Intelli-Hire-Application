@@ -1216,15 +1216,39 @@ export default function Home() {
       return;
     }
 
-    if (['summary', 'education', 'certifications', 'achievements'].includes(section)) {
-      const cards = await buildSectionSuggestions(section);
-      setSectionEditFlow({ section, stage: 'pick' });
+    if (section === 'education') {
       pushAiMessage({
-        text: `${intro} — here are **${SECTION_LABELS[section]}** options tailored to **${cvDraftData?.position || 'your role'}**. Tap one to apply, or type your own below:`,
-        cards: cards.map(c => ({ ...c, section })),
+        text: `${intro} — **Enter your education details below:**`,
+        educationForm: true,
+      });
+      return;
+    }
+
+    if (section === 'certifications') {
+      pushAiMessage({
+        text: `${intro} — **Enter your certification details below:**`,
+        certificationForm: true,
+      });
+      return;
+    }
+
+    if (section === 'achievements') {
+      pushAiMessage({
+        text: `${intro} — **Enter your achievement details below:**`,
+        achievementForm: true,
+      });
+      return;
+    }
+
+    if (section === 'summary') {
+      const cards = await buildSectionSuggestions('summary');
+      setSectionEditFlow({ section: 'summary', stage: 'pick' });
+      pushAiMessage({
+        text: `${intro} — here are Professional Summaries tailored to **${cvDraftData?.position || 'your role'}**. Tap one to apply:`,
+        cards: cards.map(c => ({ ...c, section: 'summary' })),
         options: [
-          { label: `I'll type my own ${SECTION_LABELS[section].toLowerCase()}`, action: 'own', section },
-          { label: `Skip ${SECTION_LABELS[section].toLowerCase()}`, action: 'skip', section }
+          { label: 'I\'ll type my own instead', action: 'own', section: 'summary' },
+          { label: 'Skip for now', action: 'skip', section: 'summary' }
         ],
       });
       return;
@@ -1500,96 +1524,257 @@ export default function Home() {
       return;
     }
     if (opt.action === 'proj-category') {
-      const catMap = {
-        ecommerce: {
-          category: 'E-commerce Platform',
-          title: 'ShopMart E-Commerce Platform',
-          tech: 'React.js, Node.js, Express, MongoDB, Tailwind CSS',
-          bullets: [
-            'Built a full-stack e-commerce web application with product search, filtering, and shopping cart management.',
-            'Integrated RESTful APIs and secure Stripe/PayPal payment checkout gateway for seamless order processing.',
-            'Implemented user authentication, wishlist persistence, and order history tracking using JWT & MongoDB.',
-            'Optimized frontend asset loading and component state caching to achieve sub-second page rendering.'
-          ]
-        },
-        crm: {
-          category: 'CRM / ERP System',
-          title: 'Enterprise CRM Portal',
-          tech: 'React.js, Django, PostgreSQL, REST APIs, Redis',
-          bullets: [
-            'Developed lead management and client interaction tracking dashboards for enterprise sales teams.',
-            'Automated email notifications, deal pipeline analytics, and custom KPI summary report generation.',
-            'Built role-based access control (RBAC) ensuring secure permission boundaries across team hierarchies.',
-            'Integrated RESTful services with PostgreSQL and Redis to accelerate real-time data lookup by 40%.'
-          ]
-        },
-        ai: {
-          category: 'AI / ML Application',
-          title: 'AI Resume & CV Optimizer',
-          tech: 'Python, FastAPI, Next.js, PyTorch, OpenAI API',
-          bullets: [
-            'Engineered an AI-driven resume builder analyzing job descriptions against candidate skills in real-time.',
-            'Implemented scoring algorithms and NLP feature extraction to maximize ATS match rates for applicants.',
-            'Designed scalable FastAPI microservices connecting PyTorch models with a responsive Next.js frontend.',
-            'Streamlined prompt execution and response parsing, reducing AI inference latency by over 30%.'
-          ]
-        },
-        saas: {
-          category: 'SaaS Analytics Dashboard',
-          title: 'SaaS Metrics & Analytics Hub',
-          tech: 'Next.js, TypeScript, Tailwind CSS, Chart.js, PostgreSQL',
-          bullets: [
-            'Created a real-time analytics dashboard rendering key revenue, churn, and user engagement metrics.',
-            'Built dynamic interactive charts using Chart.js & Tailwind CSS with customizable date range filters.',
-            'Optimized complex SQL aggregation queries and database indexing to speed up multi-tenant reporting.',
-            'Integrated automated webhook processing and Stripe subscription billing status synchronization.'
-          ]
-        },
-        fullstack: {
-          category: 'Fullstack Web Application',
-          title: 'Real-Time Collaboration Platform',
-          tech: 'React.js, Node.js, Express, Socket.io, MongoDB',
-          bullets: [
-            'Designed a multi-user workspace supporting live chat, task boards, and document synchronization.',
-            'Implemented WebSockets with Socket.io for low-latency live messaging and active status indicators.',
-            'Architected secure Node.js & Express REST APIs integrated with MongoDB for robust data storage.',
-            'Deployed automated CI/CD build pipelines and environment config management for seamless releases.'
-          ]
-        },
-        mobile: {
-          category: 'Mobile Application',
-          title: 'Cross-Platform Mobile App',
-          tech: 'React Native, Expo, Firebase, Redux Toolkit',
-          bullets: [
-            'Developed a cross-platform iOS and Android mobile application using React Native and Expo.',
-            'Integrated offline data caching with AsyncStore and push notifications via Firebase Cloud Messaging.',
-            'Designed a fluid, intuitive mobile UI with responsive touch gestures and smooth page navigation.',
-            'Optimized memory usage and bundle size, resulting in a 25% faster cold boot launch time.'
-          ]
-        },
-        custom: {
-          category: 'Custom Project',
-          title: '',
-          tech: '',
-          bullets: [
-            'Designed and developed core application features using modern software architecture.',
-            'Integrated clean API services and database persistence for seamless user experience.',
-            'Implemented responsive UI layouts and component state management.',
-            'Optimized application performance, security, and build efficiency.'
-          ]
+      const roleKey = getRoleType(cvDraftData?.position || '');
+      
+      const getRoleMatchedProject = (categoryKey) => {
+        if (roleKey === 'mern') {
+          const mernMap = {
+            ecommerce: {
+              category: 'E-commerce Platform',
+              title: 'MERN E-Commerce Storefront',
+              tech: 'React.js, Node.js, Express.js, MongoDB, Tailwind CSS, Redux',
+              bullets: [
+                'Built a full-stack MERN e-commerce application with dynamic product search, filtering, and shopping cart persistence.',
+                'Integrated RESTful APIs and secure Stripe payment checkout gateway for real-time order processing.',
+                'Implemented user authentication, JWT token refresh, and order history tracking with MongoDB aggregations.',
+                'Optimized React component rendering and state caching to achieve sub-second page load speeds.'
+              ]
+            },
+            crm: {
+              category: 'CRM System',
+              title: 'MERN Enterprise Sales CRM',
+              tech: 'React.js, Node.js, Express.js, MongoDB, Redis, REST APIs',
+              bullets: [
+                'Developed lead management and client interaction tracking dashboards using React and Express.js.',
+                'Automated email notifications, deal pipeline analytics, and custom KPI summary report generation.',
+                'Built role-based access control (RBAC) ensuring secure permission boundaries across sales teams.',
+                'Integrated Redis caching with MongoDB queries to accelerate real-time data lookup by 40%.'
+              ]
+            },
+            ai: {
+              category: 'AI / ML Application',
+              title: 'AI Resume & Skill Matcher',
+              tech: 'React.js, Node.js, Express.js, MongoDB, OpenAI API',
+              bullets: [
+                'Engineered a MERN-based AI resume optimizer comparing job descriptions against candidate skills.',
+                'Implemented scoring algorithms and keyword feature extraction to maximize ATS match rates.',
+                'Designed Express.js REST APIs connecting OpenAI models with a responsive React frontend.',
+                'Streamlined response parsing and prompt pipelines, reducing inference latency by 30%.'
+              ]
+            },
+            saas: {
+              category: 'SaaS Analytics Dashboard',
+              title: 'MERN SaaS Metrics Portal',
+              tech: 'React.js, Node.js, Express.js, MongoDB, Chart.js',
+              bullets: [
+                'Created a real-time analytics dashboard rendering key subscription revenue and active user metrics.',
+                'Built dynamic interactive charts using Chart.js & Tailwind CSS with customizable date filters.',
+                'Optimized MongoDB aggregation pipelines to speed up multi-tenant analytics reporting.',
+                'Integrated automated webhook processing and Stripe subscription billing status sync.'
+              ]
+            },
+            fullstack: {
+              category: 'Fullstack Web Application',
+              title: 'Real-Time Workspace Hub',
+              tech: 'React.js, Node.js, Express.js, Socket.io, MongoDB',
+              bullets: [
+                'Designed a multi-user workspace supporting live chat, task boards, and document collaboration.',
+                'Implemented WebSockets with Socket.io for low-latency live messaging and presence indicators.',
+                'Architected secure Express.js REST APIs integrated with MongoDB for robust data storage.',
+                'Deployed automated build pipelines and environment config management for seamless releases.'
+              ]
+            },
+            mobile: {
+              category: 'Mobile Application',
+              title: 'MERN Mobile App Backend & UI',
+              tech: 'React Native, Node.js, Express.js, MongoDB, Redux',
+              bullets: [
+                'Developed a cross-platform mobile application interface powered by Node.js & Express REST APIs.',
+                'Integrated offline data caching with AsyncStore and push notifications via Firebase.',
+                'Designed a fluid mobile UI with responsive touch gestures and smooth navigation.',
+                'Optimized API payload sizes resulting in a 25% faster data sync time.'
+              ]
+            }
+          };
+          return mernMap[categoryKey] || mernMap.ecommerce;
         }
+
+        if (roleKey === 'backend_python' || roleKey === 'data') {
+          const pyMap = {
+            ecommerce: {
+              category: 'E-commerce Platform',
+              title: 'Python Django E-Commerce Backend',
+              tech: 'Python, Django, PostgreSQL, Redis, Celery, REST APIs',
+              bullets: [
+                'Built a robust Python & Django e-commerce backend supporting complex product catalogs and order workflows.',
+                'Integrated RESTful APIs and Stripe payment processing with automated invoice generation.',
+                'Configured Celery background workers and Redis queues for asynchronous email and PDF receipt delivery.',
+                'Optimized Django ORM queries and PostgreSQL indexing to improve API response time by 45%.'
+              ]
+            },
+            crm: {
+              category: 'CRM System',
+              title: 'Django Enterprise Sales CRM',
+              tech: 'Python, Django REST Framework, PostgreSQL, Docker, Redis',
+              bullets: [
+                'Developed enterprise CRM REST APIs for lead tracking, customer analytics, and deal management.',
+                'Implemented Django permissions and OAuth2 authentication for secure multi-tenant access control.',
+                'Automated data pipeline exports and scheduled summary reports using Celery Beats.',
+                'Containerized backend services using Docker Compose for reliable local and cloud deployment.'
+              ]
+            },
+            ai: {
+              category: 'AI / ML Application',
+              title: 'AI Resume & Document Parser',
+              tech: 'Python, FastAPI, PyTorch, OpenAI API, PostgreSQL, Docker',
+              bullets: [
+                'Engineered a Python AI service extracting entity features and scoring resume ATS compatibility.',
+                'Built high-performance async endpoints using FastAPI to handle concurrent ML inference tasks.',
+                'Designed PyTorch and NLP pipeline pipelines to parse and index unstructured resume documents.',
+                'Optimized model loading and memory allocation, reducing overall API latency by 35%.'
+              ]
+            },
+            saas: {
+              category: 'SaaS Analytics Dashboard',
+              title: 'Python Analytics & Reporting API',
+              tech: 'Python, FastAPI, PostgreSQL, Pandas, Redis',
+              bullets: [
+                'Created high-throughput Python analytics APIs aggregating financial and usage metrics.',
+                'Utilized Pandas and NumPy for fast in-memory data transformation and analytics calculations.',
+                'Configured Redis data caching to reduce database query loads during peak reporting hours.',
+                'Integrated webhook listener services for live Stripe subscription event synchronization.'
+              ]
+            },
+            fullstack: {
+              category: 'Fullstack Web Application',
+              title: 'Django Fullstack Portal',
+              tech: 'Python, Django, PostgreSQL, HTML5/CSS3, JavaScript',
+              bullets: [
+                'Architected a full-stack Django application with server-side rendered templates and REST APIs.',
+                'Implemented secure form processing, CSRF protection, and user session management.',
+                'Integrated PostgreSQL database with custom migration scripts and data integrity checks.',
+                'Automated unit and integration test suites achieving high code coverage.'
+              ]
+            },
+            mobile: {
+              category: 'Mobile Application',
+              title: 'Python Mobile API Server',
+              tech: 'Python, Django REST Framework, PostgreSQL, Firebase',
+              bullets: [
+                'Designed lightweight RESTful microservices providing API endpoints for mobile clients.',
+                'Implemented token-based authentication and FCM push notification dispatchers.',
+                'Optimized database queries and JSON payload serialization for mobile network bandwidth.',
+                'Configured automated deployment pipelines on cloud infrastructure.'
+              ]
+            }
+          };
+          return pyMap[categoryKey] || pyMap.ecommerce;
+        }
+
+        const defaultMap = {
+          ecommerce: {
+            category: 'E-commerce Platform',
+            title: 'ShopMart E-Commerce Platform',
+            tech: 'React.js, TypeScript, Next.js, Node.js, Tailwind CSS',
+            bullets: [
+              'Built a full-stack e-commerce web application with product search, filtering, and shopping cart management.',
+              'Integrated RESTful APIs and secure Stripe/PayPal payment checkout gateway for seamless order processing.',
+              'Implemented user authentication, wishlist persistence, and order history tracking using JWT.',
+              'Optimized frontend asset loading and component state caching to achieve sub-second page rendering.'
+            ]
+          },
+          crm: {
+            category: 'CRM System',
+            title: 'Enterprise CRM Portal',
+            tech: 'React.js, TypeScript, Node.js, PostgreSQL, REST APIs',
+            bullets: [
+              'Developed lead management and client interaction tracking dashboards for enterprise sales teams.',
+              'Automated email notifications, deal pipeline analytics, and custom KPI summary report generation.',
+              'Built role-based access control (RBAC) ensuring secure permission boundaries across team hierarchies.',
+              'Integrated RESTful services with PostgreSQL and Redis to accelerate real-time data lookup by 40%.'
+            ]
+          },
+          ai: {
+            category: 'AI / ML Application',
+            title: 'AI Job & Resume Optimizer',
+            tech: 'TypeScript, Next.js, Python, FastAPI, OpenAI API',
+            bullets: [
+              'Engineered an AI-driven resume builder analyzing job descriptions against candidate skills in real-time.',
+              'Implemented scoring algorithms and NLP feature extraction to maximize ATS match rates for applicants.',
+              'Designed scalable FastAPI microservices connecting AI models with a responsive Next.js frontend.',
+              'Streamlined prompt execution and response parsing, reducing AI inference latency by over 30%.'
+            ]
+          },
+          saas: {
+            category: 'SaaS Analytics Dashboard',
+            title: 'SaaS Metrics & Analytics Hub',
+            tech: 'Next.js, TypeScript, Tailwind CSS, Chart.js, PostgreSQL',
+            bullets: [
+              'Created a real-time analytics dashboard rendering key revenue, churn, and user engagement metrics.',
+              'Built dynamic interactive charts using Chart.js & Tailwind CSS with customizable date range filters.',
+              'Optimized complex SQL aggregation queries and database indexing to speed up multi-tenant reporting.',
+              'Integrated automated webhook processing and Stripe subscription billing status synchronization.'
+            ]
+          },
+          fullstack: {
+            category: 'Fullstack Web Application',
+            title: 'Real-Time Collaboration Platform',
+            tech: 'React.js, Node.js, Express, Socket.io, PostgreSQL',
+            bullets: [
+              'Designed a multi-user workspace supporting live chat, task boards, and document synchronization.',
+              'Implemented WebSockets with Socket.io for low-latency live messaging and active status indicators.',
+              'Architected secure REST APIs integrated with database storage for robust data persistence.',
+              'Deployed automated CI/CD build pipelines and environment config management for seamless releases.'
+            ]
+          },
+          mobile: {
+            category: 'Mobile Application',
+            title: 'Cross-Platform Mobile App',
+            tech: 'React Native, Expo, Firebase, Redux Toolkit',
+            bullets: [
+              'Developed a cross-platform iOS and Android mobile application using React Native and Expo.',
+              'Integrated offline data caching with AsyncStore and push notifications via Firebase Cloud Messaging.',
+              'Designed a fluid, intuitive mobile UI with responsive touch gestures and smooth page navigation.',
+              'Optimized memory usage and bundle size, resulting in a 25% faster cold boot launch time.'
+            ]
+          }
+        };
+        return defaultMap[categoryKey] || defaultMap.ecommerce;
       };
 
-      const selected = catMap[opt.category] || catMap.custom;
+      const selected = opt.category === 'custom'
+        ? { category: 'Custom Project', title: '', tech: '', bullets: [] }
+        : getRoleMatchedProject(opt.category);
 
       pushAiMessage({
-        text: `Category selected: **${selected.category}**\n\nFill in or refine your project details in the form below:`,
+        text: `Category selected: **${selected.category}**\n\nRefine or save your project details in the form below:`,
         projectForm: true,
         projectDefaults: selected,
       });
       return;
     }
     if (opt.action === 'own') {
+      if (opt.section === 'education') {
+        pushAiMessage({
+          text: '**Enter your education details below:**',
+          educationForm: true,
+        });
+        return;
+      }
+      if (opt.section === 'certifications') {
+        pushAiMessage({
+          text: '**Enter your certification details below:**',
+          certificationForm: true,
+        });
+        return;
+      }
+      if (opt.section === 'achievements') {
+        pushAiMessage({
+          text: '**Enter your achievement details below:**',
+          achievementForm: true,
+        });
+        return;
+      }
       if (opt.section === 'projects') {
         pushAiMessage({
           text: '**Which category does your project belong to?**',
@@ -2773,7 +2958,7 @@ ${candidateName}`;
   const renderMessageExtras = (msg) => {
     if (!msg.cards && !msg.options && !(msg.suggestions?.length) && !(msg.jobs?.length)
       && !msg.headerForm && !msg.skillsPicker && !msg.keySkillsPicker && !msg.experienceForm && !msg.expBulletPicker
-      && !msg.projectForm && !msg.certificationForm && !msg.achievementForm) return null;
+      && !msg.projectForm && !msg.educationForm && !msg.certificationForm && !msg.achievementForm) return null;
 
     const formInputStyle = {
       width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #cbd5e1', borderRadius: '8px',
@@ -3109,6 +3294,45 @@ ${candidateName}`;
                 + Add Another Project
               </button>
             </div>
+          </form>
+        )}
+        {msg.educationForm && (
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.target;
+            const degree = form.eduDegree.value.trim();
+            const school = form.eduSchool.value.trim();
+            const year = form.eduYear.value.trim();
+            const score = form.eduScore.value.trim();
+            if (!degree) return;
+            const entry = `${degree}${school ? ` • ${school}` : ''}${year ? ` (${year})` : ''}${score ? ` • ${score}` : ''}`;
+            setCvDraftData(prev => ({ ...prev, education: entry }));
+            handleSectionProgress('education');
+            advanceGuided('education');
+          }} style={formCardStyle}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.55rem' }}>
+              <div>
+                <label style={formLabelStyle}>Degree / Qualification *</label>
+                <input name="eduDegree" required placeholder="e.g. B.Tech in Computer Science & Engineering" style={formInputStyle} />
+              </div>
+              <div>
+                <label style={formLabelStyle}>College / University / Institute</label>
+                <input name="eduSchool" placeholder="e.g. National Institute of Technology / Calicut University" style={formInputStyle} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div>
+                  <label style={formLabelStyle}>Graduation Year</label>
+                  <select name="eduYear" defaultValue="2024" style={formInputStyle}>
+                    {YEARS.map(y => <option key={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={formLabelStyle}>Grade / CGPA (optional)</label>
+                  <input name="eduScore" placeholder="e.g. CGPA 8.5 / 85%" style={formInputStyle} />
+                </div>
+              </div>
+            </div>
+            <button type="submit" style={saveBtnStyle}>Save Education → Next</button>
           </form>
         )}
         {msg.certificationForm && (
