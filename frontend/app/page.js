@@ -1119,13 +1119,13 @@ export default function Home() {
       openSectionEditor(next, fromSection);
       return;
     }
-    if (guidedRef.current && !next) {
+    if (fromSection === 'achievements' || (guidedRef.current && !next)) {
       guidedRef.current = false;
       setHighlightedSection(null);
       setCvCompleted(true);
       pushAiMessage({
-        text: "**Your CV build is complete!** All sections have been formatted and tailored to your target role.\n\n" +
-          "Would you like to confirm & complete your CV or edit any section?",
+        text: "**🎉 Your CV build is complete!** All sections have been formatted and tailored to your target role.\n\n" +
+          "Would you like to **Confirm & Complete your CV** or **Edit any section**?",
         options: [
           { label: '✅ Confirm Edition & Complete CV', action: 'confirm-complete' },
           { label: '✏️ Edit Professional Summary', action: 'open', section: 'summary' },
