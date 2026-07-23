@@ -1115,14 +1115,19 @@ export default function Home() {
     if (guidedRef.current && !next) {
       guidedRef.current = false;
       setHighlightedSection(null);
-      setRightPanelTab('jobs');
       setCvCompleted(true);
       pushAiMessage({
         text: "**Your CV build is complete!** All sections have been formatted and tailored to your target role.\n\n" +
-          "What would you like to do next?",
+          "Would you like to confirm & complete your CV or edit any section?",
         options: [
-          { label: 'Confirm Edition & Complete CV', action: 'confirm-complete' },
-          { label: 'Download PDF', action: 'download' },
+          { label: '✅ Confirm Edition & Complete CV', action: 'confirm-complete' },
+          { label: '✏️ Edit Professional Summary', action: 'open', section: 'summary' },
+          { label: '✏️ Edit Technical Skills', action: 'open', section: 'skills' },
+          { label: '✏️ Edit Work Experience', action: 'open', section: 'experience' },
+          { label: '✏️ Edit Projects', action: 'open', section: 'projects' },
+          { label: '✏️ Edit Education', action: 'open', section: 'education' },
+          { label: '✏️ Edit Certifications', action: 'open', section: 'certifications' },
+          { label: '✏️ Edit Achievements', action: 'open', section: 'achievements' },
         ],
       });
       return;
@@ -3573,6 +3578,26 @@ ${candidateName}`;
       achievements = altItems.slice(4);
     }
 
+    const getEditableLineProps = (sectionKey, updateFn) => ({
+      contentEditable: true,
+      suppressContentEditableWarning: true,
+      onFocus: (e) => {
+        setInlineEditSection(sectionKey);
+        e.currentTarget.style.background = '#eff6ff';
+        e.currentTarget.style.borderLeft = '3px solid #2563eb';
+        e.currentTarget.style.paddingLeft = '0.45rem';
+        e.currentTarget.style.borderRadius = '4px';
+      },
+      onBlur: (e) => {
+        e.currentTarget.style.background = 'transparent';
+        e.currentTarget.style.borderLeft = 'none';
+        e.currentTarget.style.paddingLeft = '0';
+        setInlineEditSection(null);
+        if (updateFn) updateFn(e.currentTarget.innerText);
+      },
+      style: { outline: 'none', transition: 'all 0.15s ease', cursor: 'text' }
+    });
+
     return (
       <div className="resume-body" style={{ fontSize: "0.81rem", color: "#1e293b", fontFamily: "var(--font-sans)", lineHeight: "1.45" }}>
         {/* Name Header */}
@@ -3588,10 +3613,10 @@ ${candidateName}`;
               <EditPencilIcon />
             </button>
             <div style={{ textAlign: "center", marginBottom: "0.6rem" }}>
-              <h2 className="resume-name" style={{ fontSize: "1.4rem", color: cv.name ? "#0f172a" : "#cbd5e1", textTransform: "uppercase", fontWeight: "800", marginBottom: "0.15rem", letterSpacing: "-0.01em" }}>
+              <h2 className="resume-name" {...getEditableLineProps('header', (val) => setCvDraftData(prev => ({ ...prev, name: val })))} style={{ fontSize: "1.4rem", color: cv.name ? "#0f172a" : "#cbd5e1", textTransform: "uppercase", fontWeight: "800", marginBottom: "0.15rem", letterSpacing: "-0.01em", outline: 'none' }}>
                 {cv.name || "Your Name"}
               </h2>
-              <div style={{ fontSize: "0.81rem", color: "#0f172a", fontWeight: "600", marginBottom: "0.2rem" }}>
+              <div {...getEditableLineProps('header', (val) => setCvDraftData(prev => ({ ...prev, position: val })))} style={{ fontSize: "0.81rem", color: "#0f172a", fontWeight: "600", marginBottom: "0.2rem", outline: 'none' }}>
                 {position}{headerSkills ? `  •  ${headerSkills}` : ""}
               </div>
               {contactRow1.length > 0 && (
@@ -3611,10 +3636,7 @@ ${candidateName}`;
 
         {/* Professional Summary */}
         {isSectionVisible('summary') && (
-          <div onClick={() => handleSectionClick('summary')} style={{
-            ...getSectionStyle('summary'),
-            ...(inlineEditSection === 'summary' ? { outline: '2px dashed #2563eb', background: '#eff6ff33', borderRadius: '8px', padding: '0.35rem' } : {})
-          }}>
+          <div onClick={() => handleSectionClick('summary')} style={getSectionStyle('summary')}>
             {renderSectionBadge('summary')}
             <div className="resume-section-header">
               <span>Professional Summary</span>
@@ -3628,13 +3650,7 @@ ${candidateName}`;
             </div>
             {summary ? (
               <p
-                contentEditable={inlineEditSection === 'summary'}
-                suppressContentEditableWarning={true}
-                onBlur={(e) => {
-                  const newText = e.currentTarget.innerText;
-                  setCvDraftData(prev => ({ ...prev, summary: newText }));
-                  setInlineEditSection(null);
-                }}
+                {...getEditableLineProps('summary', (val) => setCvDraftData(prev => ({ ...prev, summary: val })))}
                 className="resume-text" style={{ textAlign: "justify", marginBottom: "0.4rem", outline: 'none' }}>
                 {isOptimized ? renderWithHighlights(summary) : summary}
               </p>
@@ -3735,10 +3751,26 @@ ${candidateName}`;
                   <ul className="resume-list" style={{ marginTop: "0.1rem", marginBottom: "0.3rem" }}>
                     {exp.bullets && Array.isArray(exp.bullets) ? (
                       exp.bullets.map((bullet, bIdx) => (
-                        <li key={bIdx}>{isOptimized ? renderWithHighlights(bullet) : bullet}</li>
+                        <li key={bIdx} {...getEditableLineProps('experience', (val) => {
+                          setCvDraftData(prev => {
+                            const list = Array.isArray(prev.experience) ? [...prev.experience] : [];
+                            if (list[idx] && Array.isArray(list[idx].bullets)) {
+                              list[idx].bullets[bIdx] = val;
+                            }
+                            return { ...prev, experience: list };
+                          });
+                        })}>
+                          {isOptimized ? renderWithHighlights(bullet) : bullet}
+                        </li>
                       ))
                     ) : (
-                      <li>{exp.bullets || ""}</li>
+                      <li {...getEditableLineProps('experience', (val) => {
+                        setCvDraftData(prev => {
+                          const list = Array.isArray(prev.experience) ? [...prev.experience] : [];
+                          if (list[idx]) list[idx].bullets = val;
+                          return { ...prev, experience: list };
+                        });
+                      })}>{exp.bullets || ""}</li>
                     )}
                   </ul>
                 </div>
@@ -3780,10 +3812,26 @@ ${candidateName}`;
                   <ul className="resume-list" style={{ marginTop: "0.1rem", marginBottom: "0.3rem" }}>
                     {proj.bullets && Array.isArray(proj.bullets) ? (
                       proj.bullets.map((bullet, bIdx) => (
-                        <li key={bIdx}>{isOptimized ? renderWithHighlights(bullet) : bullet}</li>
+                        <li key={bIdx} {...getEditableLineProps('projects', (val) => {
+                          setCvDraftData(prev => {
+                            const list = Array.isArray(prev.projects) ? [...prev.projects] : [];
+                            if (list[idx] && Array.isArray(list[idx].bullets)) {
+                              list[idx].bullets[bIdx] = val;
+                            }
+                            return { ...prev, projects: list };
+                          });
+                        })}>
+                          {isOptimized ? renderWithHighlights(bullet) : bullet}
+                        </li>
                       ))
                     ) : (
-                      <li>{proj.bullets || ""}</li>
+                      <li {...getEditableLineProps('projects', (val) => {
+                        setCvDraftData(prev => {
+                          const list = Array.isArray(prev.projects) ? [...prev.projects] : [];
+                          if (list[idx]) list[idx].bullets = val;
+                          return { ...prev, projects: list };
+                        });
+                      })}>{proj.bullets || ""}</li>
                     )}
                   </ul>
                 </div>
@@ -4106,7 +4154,7 @@ ${candidateName}`;
           padding: "2rem 1rem",
         }}>
           {/* Brand mark */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "2.5rem" }}>
+          <div onClick={handleGoHome} style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "2.5rem", cursor: "pointer" }} title="Go to Home Page">
             <svg viewBox="0 0 24 24" fill="var(--accent-blue)" style={{ width: "2.4rem", height: "2.4rem" }}>
               <path d="M 8 3 Q 8 12 15 12 Q 8 12 8 21 Q 8 12 1 12 Q 8 12 8 3 Z" />
               <path d="M 18 1 Q 18 7 23 7 Q 18 7 18 13 Q 18 7 13 7 Q 18 7 18 1 Z" />
@@ -4255,16 +4303,12 @@ ${candidateName}`;
               </div>
             )}
 
-            {/* Builder toolbar — suggestion-built CVs get a clean bar without ATS scores */}
+            {/* Builder toolbar — suggestion-built CVs get a clean bar without Download button */}
             {!isOptimizing && isAnalyzed && customOptimizationResult && !parsedCV && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-gray)' }}>
                   Building your <span style={{ color: 'var(--accent-blue)' }}>{cvDraftData?.position || 'CV'}</span> — follow the chat on the right
                 </span>
-                <button onClick={handleDownloadPdf} title="Download CV as PDF"
-                  style={{ marginLeft: 'auto', padding: '0.6rem 1rem', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <DownloadIcon /> PDF
-                </button>
               </div>
             )}
 
