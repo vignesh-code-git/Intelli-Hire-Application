@@ -1122,7 +1122,6 @@ export default function Home() {
     if (fromSection === 'achievements' || (guidedRef.current && !next)) {
       guidedRef.current = false;
       setHighlightedSection(null);
-      setCvCompleted(true);
       pushAiMessage({
         text: "**🎉 Your CV build is complete!** All sections have been formatted and tailored to your target role.\n\n" +
           "Would you like to **Confirm & Complete your CV** or **Edit any section**?",
@@ -3422,12 +3421,6 @@ ${candidateName}`;
               }}>
                 + Add Another Certification
               </button>
-              <button type="button" onClick={() => handleChatOption({ action: 'skip', section: 'certifications' })} style={{
-                padding: '0.48rem 0.95rem', borderRadius: '50px', border: '1px solid #cbd5e1', background: '#f8fafc',
-                color: '#64748b', fontSize: '0.78rem', fontWeight: 650, cursor: 'pointer'
-              }}>
-                Skip Certifications
-              </button>
             </div>
           </form>
         )}
@@ -3458,12 +3451,6 @@ ${candidateName}`;
                 color: '#2563eb', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
               }}>
                 + Add Another Achievement
-              </button>
-              <button type="button" onClick={() => handleChatOption({ action: 'skip', section: 'achievements' })} style={{
-                padding: '0.48rem 0.95rem', borderRadius: '50px', border: '1px solid #cbd5e1', background: '#f8fafc',
-                color: '#64748b', fontSize: '0.78rem', fontWeight: 650, cursor: 'pointer'
-              }}>
-                Skip Achievements
               </button>
             </div>
           </form>
