@@ -1189,7 +1189,26 @@ export default function Home() {
       return;
     }
 
-    if (['summary', 'education', 'certifications', 'achievements', 'experience', 'projects'].includes(section)) {
+    if (section === 'projects') {
+      setSectionEditFlow({ section: 'projects', stage: 'category' });
+      pushAiMessage({
+        text: `${intro} — **Which project category best describes your project?**`,
+        hint: 'Tap a category to auto-load recommended title, tech stack & highlights:',
+        options: [
+          { label: '🛒 E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
+          { label: '💼 CRM / ERP System', action: 'proj-category', category: 'crm', section: 'projects' },
+          { label: '🤖 AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
+          { label: '📊 SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
+          { label: '💻 Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
+          { label: '📱 Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
+          { label: '➕ Custom Project', action: 'proj-category', category: 'custom', section: 'projects' },
+          { label: 'Skip Projects', action: 'skip', section: 'projects' },
+        ],
+      });
+      return;
+    }
+
+    if (['summary', 'education', 'certifications', 'achievements', 'experience'].includes(section)) {
       const cards = await buildSectionSuggestions(section);
       setSectionEditFlow({ section, stage: 'pick' });
       pushAiMessage({
@@ -1472,12 +1491,94 @@ export default function Home() {
       pushAiMessage({ text: '**Enter your email address**', hint: 'e.g. ravi.kumar@gmail.com' });
       return;
     }
+    if (opt.action === 'proj-category') {
+      const catMap = {
+        ecommerce: {
+          category: 'E-commerce Platform',
+          title: 'ShopMart E-Commerce Platform',
+          tech: 'React.js, Node.js, Express, MongoDB, Tailwind CSS',
+          bullets: [
+            'Built a full-stack e-commerce web application with product search and shopping cart management.',
+            'Integrated RESTful APIs and secure payment checkout gateway.',
+          ]
+        },
+        crm: {
+          category: 'CRM / ERP System',
+          title: 'Enterprise CRM Portal',
+          tech: 'React.js, Django, PostgreSQL, REST APIs, Redis',
+          bullets: [
+            'Developed lead management and client tracking dashboards for sales teams.',
+            'Automated email notifications and pipeline analytics reporting.',
+          ]
+        },
+        ai: {
+          category: 'AI / ML Application',
+          title: 'AI Resume & CV Optimizer',
+          tech: 'Python, FastAPI, Next.js, PyTorch, OpenAI API',
+          bullets: [
+            'Engineered an AI-driven resume builder analyzing job descriptions against candidate skills.',
+            'Implemented real-time scoring algorithms to maximize ATS match rates.',
+          ]
+        },
+        saas: {
+          category: 'SaaS Analytics Dashboard',
+          title: 'SaaS Metrics & Analytics Hub',
+          tech: 'Next.js, TypeScript, Tailwind CSS, Chart.js, PostgreSQL',
+          bullets: [
+            'Created real-time analytics dashboard rendering key revenue and user engagement metrics.',
+            'Optimized SQL queries and frontend chart rendering performance.',
+          ]
+        },
+        fullstack: {
+          category: 'Fullstack Web Application',
+          title: 'Real-Time Collaboration Platform',
+          tech: 'React.js, Node.js, Express, Socket.io, MongoDB',
+          bullets: [
+            'Designed a multi-user workspace supporting live chat and document synchronization.',
+            'Implemented JWT authentication and role-based access control.',
+          ]
+        },
+        mobile: {
+          category: 'Mobile Application',
+          title: 'Cross-Platform Mobile App',
+          tech: 'React Native, Expo, Firebase, Redux Toolkit',
+          bullets: [
+            'Developed a cross-platform iOS and Android mobile app with responsive UI.',
+            'Integrated offline data caching and real-time push notifications.',
+          ]
+        },
+        custom: {
+          category: 'Custom Project',
+          title: '',
+          tech: '',
+          bullets: []
+        }
+      };
+
+      const selected = catMap[opt.category] || catMap.custom;
+
+      pushAiMessage({
+        text: `Category selected: **${selected.category}**\n\nFill in or refine your project details in the form below:`,
+        projectForm: true,
+        projectDefaults: selected,
+      });
+      return;
+    }
     if (opt.action === 'own') {
       if (opt.section === 'projects') {
+        setSectionEditFlow({ section: 'projects', stage: 'category' });
         pushAiMessage({
-          text: '**Add your project details**',
-          hint: 'Tap a project category button below to auto-fill, or enter custom details',
-          projectForm: true,
+          text: '**Which project category best describes your project?**',
+          hint: 'Tap a category to auto-load recommended title, tech stack & highlights:',
+          options: [
+            { label: '🛒 E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
+            { label: '💼 CRM / ERP System', action: 'proj-category', category: 'crm', section: 'projects' },
+            { label: '🤖 AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
+            { label: '📊 SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
+            { label: '💻 Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
+            { label: '📱 Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
+            { label: '➕ Custom Project', action: 'proj-category', category: 'custom', section: 'projects' },
+          ],
         });
         return;
       }
@@ -2873,52 +2974,46 @@ ${candidateName}`;
             const name = form.projectName.value.trim();
             const tech = form.projectTech.value.trim();
             const rawBullets = form.projectBullets.value.trim();
+            const checkedBoxes = Array.from(form.querySelectorAll('input[name="projBullets"]:checked')).map(cb => cb.value);
             if (!name) return;
-            const bullets = rawBullets
-              ? rawBullets.split('\n').map(l => l.trim()).filter(Boolean)
-              : ['Designed and built high-performance features with modern architecture.'];
+            const extraBullets = rawBullets ? rawBullets.split('\n').map(l => l.trim()).filter(Boolean) : [];
+            const bullets = [...checkedBoxes, ...extraBullets];
+            if (!bullets.length) bullets.push('Designed and built key application features using modern web architecture.');
             const entry = { name, tech, bullets };
             setCvDraftData(prev => ({ ...prev, projects: [entry, ...(Array.isArray(prev.projects) ? prev.projects : [])] }));
             handleSectionProgress('projects');
             advanceGuided('projects');
           }} style={formCardStyle}>
-            <div style={{ marginBottom: '0.65rem' }}>
-              <span style={formLabelStyle}>Project Categories — tap to auto-fill title & tech stack</span>
-              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
-                {[
-                  { name: '🛒 E-commerce', title: 'ShopMart E-Commerce Platform', tech: 'React.js, Node.js, Express, MongoDB, Tailwind CSS' },
-                  { name: '💼 CRM System', title: 'Enterprise CRM Portal', tech: 'React.js, Django, PostgreSQL, REST APIs' },
-                  { name: '🤖 AI / ML App', title: 'AI Job & Resume Optimizer', tech: 'Python, FastAPI, Next.js, PyTorch' },
-                  { name: '📊 SaaS Dashboard', title: 'SaaS Analytics Dashboard', tech: 'Next.js, TypeScript, Tailwind CSS, PostgreSQL' },
-                  { name: '💻 Fullstack App', title: 'Real-Time Collaboration Hub', tech: 'React.js, Node.js, Socket.io, MongoDB' }
-                ].map((cat) => (
-                  <button key={cat.name} type="button" onClick={() => {
-                    const nameEl = document.getElementById('project-name-input');
-                    const techEl = document.getElementById('project-tech-input');
-                    if (nameEl) nameEl.value = cat.title;
-                    if (techEl) techEl.value = cat.tech;
-                  }} style={{
-                    padding: '0.35rem 0.75rem', borderRadius: '50px', fontSize: '0.76rem', fontWeight: 650, cursor: 'pointer',
-                    border: '1px solid #2563eb', background: '#eff6ff', color: '#2563eb', transition: 'all 0.15s'
-                  }}>
-                    {cat.name}
-                  </button>
-                ))}
+            {msg.projectDefaults?.category && (
+              <div style={{ marginBottom: '0.55rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '50px', padding: '0.15rem 0.55rem' }}>
+                  Category: {msg.projectDefaults.category}
+                </span>
               </div>
-            </div>
-
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.55rem' }}>
               <div>
                 <label style={formLabelStyle}>Project Name / Title</label>
-                <input id="project-name-input" name="projectName" required placeholder="e.g. ShopMart E-Commerce Platform" style={formInputStyle} />
+                <input name="projectName" required placeholder="e.g. ShopMart E-Commerce Platform" defaultValue={msg.projectDefaults?.title || ''} style={formInputStyle} />
               </div>
               <div>
                 <label style={formLabelStyle}>Tech Stack Used</label>
-                <input id="project-tech-input" name="projectTech" placeholder="e.g. React.js, Node.js, Express, MongoDB, Tailwind CSS" style={formInputStyle} />
+                <input name="projectTech" placeholder="e.g. React.js, Node.js, Express, MongoDB, Tailwind CSS" defaultValue={msg.projectDefaults?.tech || ''} style={formInputStyle} />
               </div>
+              {msg.projectDefaults?.bullets && msg.projectDefaults.bullets.length > 0 && (
+                <div>
+                  <span style={formLabelStyle}>Suggested Key Features — tick the ones that fit</span>
+                  {msg.projectDefaults.bullets.map((b, i) => (
+                    <label key={i} style={{ display: 'flex', gap: '0.35rem', alignItems: 'flex-start', fontSize: '0.68rem', color: '#475569', marginBottom: '0.25rem', cursor: 'pointer' }}>
+                      <input type="checkbox" name="projBullets" value={b} defaultChecked={true} style={{ marginTop: '0.15rem' }} />
+                      <span>{b}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
               <div>
-                <label style={formLabelStyle}>Key Highlights / Features (one per line)</label>
-                <textarea name="projectBullets" rows={3} placeholder="e.g. Built full-stack e-commerce app with cart management&#10;Integrated REST APIs and payment checkout gateway" style={{ ...formInputStyle, resize: 'vertical' }} />
+                <label style={formLabelStyle}>Additional Features / Custom Points (optional, one per line)</label>
+                <textarea name="projectBullets" rows={2} placeholder="e.g. Integrated Stripe payment gateway&#10;Added real-time chat with Socket.io" style={{ ...formInputStyle, resize: 'vertical' }} />
               </div>
             </div>
             <button type="submit" style={saveBtnStyle}>Save Project → Next</button>
