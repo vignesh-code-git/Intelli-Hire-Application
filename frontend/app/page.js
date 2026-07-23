@@ -4583,7 +4583,7 @@ ${candidateName}`;
           {/* Slim top bar: brand + search / role switch */}
           <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--border-color)', padding: '0.9rem 1.5rem' }}>
             <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+              <div onClick={handleGoHome} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, cursor: 'pointer' }} title="Go to Home Page">
                 <svg viewBox="0 0 24 24" fill="var(--accent-blue)" style={{ width: '1.5rem', height: '1.5rem' }}>
                   <path d="M 8 3 Q 8 12 15 12 Q 8 12 8 21 Q 8 12 1 12 Q 8 12 8 3 Z" />
                   <path d="M 18 1 Q 18 7 23 7 Q 18 7 18 13 Q 18 7 13 7 Q 18 7 18 1 Z" />
@@ -4691,8 +4691,6 @@ ${candidateName}`;
               </div>
             </div>
           </div>
-
-          {floatingComposer}
         </div>
       )}
 
