@@ -981,10 +981,8 @@ export default function Home() {
   // Full technical-skill pool for the header "key skills" picker — every skill
   // across the role's relevant categories, role-recommended ones listed first.
   const keySkillPool = (position) => {
-    const role = getRoleType(position || '');
-    const cats = ROLE_SKILL_CATEGORIES[role] || Object.keys(SKILL_SUGGESTION_POOL);
-    const all = cats.flatMap(c => SKILL_SUGGESTION_POOL[c] || []);
-    return [...new Set([...getRecommendedSkills(position), ...all])];
+    const rec = getRecommendedSkills(position || '');
+    return [...new Set(rec)].slice(0, 8);
   };
 
   // Pool of headline-skill chips for the header form — the skills that define
@@ -1416,6 +1414,7 @@ export default function Home() {
     if (opt.action === 'exp-done') { finishExperienceFlow(); return; }
     if (opt.action === 'key-skills-done') {
       const picked = keySkills.length ? keySkills : getRecommendedSkills(cvDraftData?.position || '').slice(0, KEY_SKILLS_LIMIT);
+      setChatMessages(prev => [...prev, { id: Date.now(), sender: "user", text: picked.join(', ') }]);
       setCvDraftData(prev => ({ ...prev, skills: categorizeSkills(picked.join(', ')) }));
       setHeaderQuestionIdx(3);
       pushAiMessage({ text: '**Enter your email address**', hint: 'e.g. ravi.kumar@gmail.com' });
@@ -1590,8 +1589,8 @@ export default function Home() {
           setHeaderQuestionIdx(2);
         } else {
           replyText = "**What role are you targeting?**";
-          replyHint = 'Pick one below, or type your own';
-          replySuggestions = ['Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 'Data Analyst'];
+          replyHint = 'Pick a job position below, or type your own';
+          replySuggestions = ['Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 'Data Analyst', 'DevOps Engineer', 'Mobile App Developer'];
           setHeaderQuestionIdx(1);
         }
       }
@@ -2635,15 +2634,24 @@ ${candidateName}`;
         )}
         {msg.keySkillsPicker && (
           <div style={formCardStyle}>
-            <span style={formLabelStyle}>Pick your skills — tap to choose (up to {KEY_SKILLS_LIMIT}) · {keySkills.length}/{KEY_SKILLS_LIMIT}</span>
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <span style={{ ...formLabelStyle, margin: 0 }}>
+                Pick 6 key skills for CV header · <strong style={{ color: keySkills.length === KEY_SKILLS_LIMIT ? '#16a34a' : '#2563eb' }}>{keySkills.length}/{KEY_SKILLS_LIMIT} selected</strong>
+              </span>
+              {keySkills.length === KEY_SKILLS_LIMIT && (
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '0.15rem 0.55rem', borderRadius: '50px' }}>
+                  ✓ 6 Selected
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
               {(msg.skillPool || []).map((skill) => {
                 const on = keySkills.some(s => s.toLowerCase() === skill.toLowerCase());
                 const full = !on && keySkills.length >= KEY_SKILLS_LIMIT;
                 return (
                   <button key={skill} type="button" onClick={() => toggleKeySkill(skill)}
                     style={{
-                      padding: '0.4rem 0.8rem', borderRadius: '50px', fontSize: '0.82rem', fontWeight: 650,
+                      padding: '0.35rem 0.75rem', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 650,
                       cursor: full ? 'not-allowed' : 'pointer', opacity: full ? 0.45 : 1,
                       border: on ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
                       background: on ? '#eff6ff' : '#ffffff', color: on ? '#2563eb' : '#475569', transition: 'all 0.15s',
@@ -2655,8 +2663,29 @@ ${candidateName}`;
             </div>
             <button type="button" onClick={() => handleChatOption({ action: 'key-skills-done' })}
               disabled={keySkills.length === 0}
-              style={{ ...saveBtnStyle, marginTop: '0.7rem', opacity: keySkills.length === 0 ? 0.5 : 1, cursor: keySkills.length === 0 ? 'not-allowed' : 'pointer' }}>
-              {keySkills.length ? `Add ${keySkills.length} skill${keySkills.length === 1 ? '' : 's'} → Next` : 'Pick at least one skill'}
+              style={{
+                ...saveBtnStyle,
+                marginTop: '0.7rem',
+                opacity: keySkills.length === 0 ? 0.55 : 1,
+                cursor: keySkills.length === 0 ? 'not-allowed' : 'pointer',
+                background: keySkills.length === KEY_SKILLS_LIMIT ? 'linear-gradient(135deg, #16a34a, #15803d)' : 'var(--accent-blue)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+              }}>
+              {keySkills.length === KEY_SKILLS_LIMIT ? (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.9rem', height: '0.9rem', strokeWidth: 2 }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  Send 6 Key Skills →
+                </>
+              ) : keySkills.length > 0 ? (
+                `Pick 6 key skills (${keySkills.length}/${KEY_SKILLS_LIMIT})`
+              ) : (
+                'Pick 6 key skills'
+              )}
             </button>
           </div>
         )}
@@ -2770,11 +2799,17 @@ ${candidateName}`;
           </div>
         )}
         {msg.suggestions && msg.suggestions.length > 0 && (
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.15rem' }}>
+          <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', marginTop: '0.35rem', marginBottom: '0.35rem' }}>
             {msg.suggestions.map((s, i) => (
               <button key={i} type="button" onClick={() => handleSendChatMessage(null, s)} className="ih-chip"
-                style={{ padding: '0.45rem 0.95rem', borderRadius: '50px', border: '1px solid #2563eb', background: '#2563eb', color: '#ffffff', fontSize: '0.86rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 6px rgba(37,99,235,0.2)' }}>
-                {s}
+                style={{
+                  padding: '0.48rem 0.95rem', borderRadius: '50px', border: '1px solid #2563eb',
+                  background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#ffffff',
+                  fontSize: '0.84rem', fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 3px 10px rgba(37,99,235,0.25)', transition: 'all 0.15s ease',
+                  display: 'inline-flex', alignItems: 'center', gap: '0.35rem'
+                }}>
+                <span>💼</span> {s}
               </button>
             ))}
           </div>
