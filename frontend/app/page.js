@@ -572,21 +572,37 @@ const CV_TEMPLATES = {
   }
 };
 const POSITION_SKILLS_REC = {
-  frontend: ["React.js", "Next.js", "TypeScript", "JavaScript", "HTML5", "CSS3", "Tailwind CSS", "Redux Toolkit", "Vite", "Bootstrap 5", "Material UI", "Webpack"],
-  backend: ["Python", "Django", "FastAPI", "Node.js", "Express.js", "PostgreSQL", "MongoDB", "MySQL", "REST API", "GraphQL", "JWT Authentication", "RBAC", "Docker"],
-  devops: ["Docker", "Kubernetes", "Terraform", "Ansible", "Jenkins", "GitHub Actions", "AWS", "GCP", "Linux", "CI/CD Pipeline", "Prometheus", "Grafana"],
-  product: ["Product Management", "Agile/Scrum", "Jira", "PRD Writing", "Roadmap Planning", "Wireframing", "A/B Testing", "Market Research", "SQL Analytics", "Confluence"],
-  security: ["Vulnerability Assessment", "Wireshark", "Nmap", "Metasploit", "SIEM", "Firewalls", "Network Security", "OWASP Top 10", "Penetration Testing", "Linux Security"],
-  data: ["Python", "Pandas", "NumPy", "Scikit-Learn", "PyTorch", "TensorFlow", "Spark", "SQL", "Data Pipelines", "Tableau", "Machine Learning", "Deep Learning"]
+  frontend: ["React.js", "Next.js", "TypeScript", "JavaScript (ES6+)", "HTML5", "CSS3", "Tailwind CSS", "Redux Toolkit", "Vite", "Zustand", "Bootstrap 5", "Material UI", "REST API", "GraphQL", "Web Performance", "Jest"],
+  backend: ["Python", "Django", "FastAPI", "Node.js", "Express.js", "PostgreSQL", "MongoDB", "MySQL", "Redis", "REST APIs", "GraphQL", "JWT Auth", "Docker", "Microservices", "Celery", "System Design"],
+  fullstack: ["React.js", "Next.js", "Node.js", "TypeScript", "Python", "Django", "PostgreSQL", "MongoDB", "Tailwind CSS", "REST APIs", "Docker", "Express.js", "GraphQL", "Redux", "CI/CD", "Vercel / Render"],
+  devops: ["Docker", "Kubernetes", "Terraform", "Ansible", "Jenkins", "GitHub Actions", "AWS (EC2/S3)", "GCP", "Linux", "CI/CD Pipelines", "Prometheus", "Grafana", "Bash Scripting", "Nginx", "Helm", "Cloud Security"],
+  mobile: ["React Native", "Flutter", "Swift", "Kotlin", "Dart", "Firebase", "iOS Dev", "Android Studio", "REST APIs", "Redux", "Xcode", "Mobile UI/UX", "SQLite", "Push Notifications", "App Store"],
+  qa: ["Selenium", "Cypress", "Playwright", "Jest", "Postman", "JUnit", "API Testing", "Automation Testing", "Manual Testing", "Jira", "CI/CD", "Python", "TestNG", "Load Testing", "Regression Testing"],
+  product: ["Product Management", "Agile/Scrum", "Jira", "PRD Writing", "Roadmap Planning", "Wireframing", "A/B Testing", "Market Research", "SQL Analytics", "Confluence", "User Stories", "KPI Tracking", "Prioritization"],
+  security: ["Vulnerability Assessment", "Wireshark", "Nmap", "Metasploit", "SIEM", "Firewalls", "Network Security", "OWASP Top 10", "Penetration Testing", "Linux Security", "Cryptography", "Incident Response", "IAM"],
+  data: ["Python", "Pandas", "NumPy", "Scikit-Learn", "PyTorch", "TensorFlow", "Apache Spark", "SQL Analytics", "Data Pipelines", "Tableau", "Power BI", "Machine Learning", "Deep Learning", "Data Visualization", "ETL", "BigQuery"],
+  uiux: ["Figma", "Adobe XD", "UI Design", "User Research", "Wireframing", "Prototyping", "Design Systems", "Usability Testing", "HTML/CSS", "User Flows", "Design Tokens", "Information Architecture", "Micro-interactions"]
 };
 
 const getRecommendedSkills = (position = "") => {
   const posLower = position.toLowerCase();
-  if (posLower.includes("frontend") || posLower.includes("react") || posLower.includes("ui") || posLower.includes("ux")) {
+  if (posLower.includes("full") || posLower.includes("stack")) {
+    return POSITION_SKILLS_REC.fullstack;
+  }
+  if (posLower.includes("frontend") || posLower.includes("react") || posLower.includes("ui") || posLower.includes("ux") || posLower.includes("web developer")) {
     return POSITION_SKILLS_REC.frontend;
   }
-  if (posLower.includes("backend") || posLower.includes("django") || posLower.includes("fastapi") || posLower.includes("node") || posLower.includes("python")) {
+  if (posLower.includes("backend") || posLower.includes("django") || posLower.includes("fastapi") || posLower.includes("node") || posLower.includes("python engineer")) {
     return POSITION_SKILLS_REC.backend;
+  }
+  if (posLower.includes("mobile") || posLower.includes("ios") || posLower.includes("android") || posLower.includes("flutter") || posLower.includes("react native")) {
+    return POSITION_SKILLS_REC.mobile;
+  }
+  if (posLower.includes("qa") || posLower.includes("test") || posLower.includes("automation") || posLower.includes("quality")) {
+    return POSITION_SKILLS_REC.qa;
+  }
+  if (posLower.includes("design") || posLower.includes("figma")) {
+    return POSITION_SKILLS_REC.uiux;
   }
   if (posLower.includes("devops") || posLower.includes("cloud") || posLower.includes("aws") || posLower.includes("site reliability") || posLower.includes("sre")) {
     return POSITION_SKILLS_REC.devops;
@@ -600,7 +616,7 @@ const getRecommendedSkills = (position = "") => {
   if (posLower.includes("data") || posLower.includes("machine") || posLower.includes("ml") || posLower.includes("ai") || posLower.includes("science")) {
     return POSITION_SKILLS_REC.data;
   }
-  return [...POSITION_SKILLS_REC.frontend.slice(0, 6), ...POSITION_SKILLS_REC.backend.slice(0, 6)];
+  return POSITION_SKILLS_REC.fullstack;
 };
 
 export default function Home() {
@@ -986,7 +1002,7 @@ export default function Home() {
   // across the role's relevant categories, role-recommended ones listed first.
   const keySkillPool = (position) => {
     const rec = getRecommendedSkills(position || '');
-    return [...new Set(rec)].slice(0, 8);
+    return [...new Set(rec)].slice(0, 16);
   };
 
   // Pool of headline-skill chips for the header form — the skills that define
