@@ -1208,7 +1208,15 @@ export default function Home() {
       return;
     }
 
-    if (['summary', 'education', 'certifications', 'achievements', 'experience'].includes(section)) {
+    if (section === 'experience') {
+      pushAiMessage({
+        text: `${intro} — **What is your job position, company name, location, and employment duration?**`,
+        experienceForm: true,
+      });
+      return;
+    }
+
+    if (['summary', 'education', 'certifications', 'achievements'].includes(section)) {
       const cards = await buildSectionSuggestions(section);
       setSectionEditFlow({ section, stage: 'pick' });
       pushAiMessage({
@@ -2804,9 +2812,17 @@ ${candidateName}`;
       if (addAnother) {
         setCustomProjBulletRows([0]);
         pushAiMessage({
-          text: '**Project saved!** Add details for your next project below:',
-          projectForm: true,
-          projectDefaults: { category: 'Custom Project', title: '', tech: '', bullets: [] },
+          text: '**Project saved!** Which category does your next project belong to?',
+          hint: 'Select a project category below for your next project:',
+          options: [
+            { label: '🛒 E-commerce Platform', action: 'proj-category', category: 'ecommerce', section: 'projects' },
+            { label: '💼 CRM System', action: 'proj-category', category: 'crm', section: 'projects' },
+            { label: '🤖 AI / ML Application', action: 'proj-category', category: 'ai', section: 'projects' },
+            { label: '📊 SaaS Analytics Dashboard', action: 'proj-category', category: 'saas', section: 'projects' },
+            { label: '💻 Fullstack Web App', action: 'proj-category', category: 'fullstack', section: 'projects' },
+            { label: '📱 Mobile Application', action: 'proj-category', category: 'mobile', section: 'projects' },
+            { label: '✏️ Custom Project (Blank Form)', action: 'proj-category', category: 'custom', section: 'projects' },
+          ],
         });
       } else {
         advanceGuided('projects');
@@ -3022,37 +3038,10 @@ ${candidateName}`;
                 🚀 Project Details
               </span>
               {msg.projectDefaults?.category && (
-                <span style={{ fontSize: '0.64rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '50px', padding: '0.12rem 0.55rem' }}>
-                  {msg.projectDefaults.category}
+                <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '50px', padding: '0.15rem 0.6rem' }}>
+                  Category: {msg.projectDefaults.category}
                 </span>
               )}
-            </div>
-
-            <div style={{ marginBottom: '0.65rem' }}>
-              <span style={formLabelStyle}>Select Category to Pre-fill Title & Tech Stack</span>
-              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
-                {[
-                  { name: '🛒 E-commerce', title: 'ShopMart E-Commerce Platform', tech: 'React.js, Node.js, Express, MongoDB, Tailwind CSS' },
-                  { name: '💼 CRM System', title: 'Enterprise CRM Portal', tech: 'React.js, Django, PostgreSQL, REST APIs' },
-                  { name: '🤖 AI / ML App', title: 'AI Job & Resume Optimizer', tech: 'Python, FastAPI, Next.js, PyTorch' },
-                  { name: '📊 SaaS Dashboard', title: 'SaaS Analytics Dashboard', tech: 'Next.js, TypeScript, Tailwind CSS, PostgreSQL' },
-                  { name: '💻 Fullstack App', title: 'Real-Time Collaboration Hub', tech: 'React.js, Node.js, Socket.io, MongoDB' },
-                  { name: '📱 Mobile App', title: 'Cross-Platform Mobile App', tech: 'React Native, Expo, Firebase, Redux' },
-                  { name: '✏️ Custom', title: '', tech: '' }
-                ].map((cat) => (
-                  <button key={cat.name} type="button" onClick={() => {
-                    const nameEl = document.getElementById('project-name-input');
-                    const techEl = document.getElementById('project-tech-input');
-                    if (nameEl) nameEl.value = cat.title;
-                    if (techEl) techEl.value = cat.tech;
-                  }} style={{
-                    padding: '0.32rem 0.7rem', borderRadius: '50px', fontSize: '0.74rem', fontWeight: 650, cursor: 'pointer',
-                    border: '1px solid #2563eb', background: '#eff6ff', color: '#2563eb', transition: 'all 0.15s'
-                  }}>
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.65rem' }}>
