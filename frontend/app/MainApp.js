@@ -4187,7 +4187,7 @@ ${candidateName}`;
   );
 
   const renderNavbar = () => (
-    <header style={{
+    <header className="app-navbar" style={{
       position: 'sticky', top: 0, zIndex: 100, background: 'rgba(255, 255, 255, 0.95)',
       backdropFilter: 'blur(10px)', borderBottom: '1px solid var(--border-color)',
       padding: '0.65rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
@@ -4203,7 +4203,7 @@ ${candidateName}`;
         </span>
       </div>
 
-      <nav style={{ display: 'flex', gap: '0.4rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '50px' }}>
+      <nav className="app-nav" style={{ display: 'flex', gap: '0.4rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '50px' }}>
         {[
           { key: 'home', label: '🏠 Home', isDisabled: false },
           { key: 'workplace', label: '🚀 IntelliHire Workplace', isDisabled: false },
@@ -4216,6 +4216,7 @@ ${candidateName}`;
             <button
               key={route.key}
               type="button"
+              className="app-nav-btn"
               disabled={disabled}
               onClick={() => navigateToRoute(route.key)}
               title={disabled ? "Complete your CV in Workplace first to unlock Job Listings!" : route.label}
@@ -4315,12 +4316,12 @@ ${candidateName}`;
 
       {/* ── ROUTE 2: INTELLIHIRE WORKPLACE (CV Builder) ── */}
       {currentRoute === 'workplace' && (
-        <div style={{ display: "flex", minHeight: "100vh", maxHeight: "100vh", overflow: "hidden" }}>
+        <div className="workplace-row" style={{ display: "flex", minHeight: "calc(100vh - 56px)", maxHeight: "calc(100vh - 56px)", overflow: "hidden" }}>
 
           {/* ── LEFT COLUMN: Full-height CV ── */}
-          <div className="cv-scroll" style={{
+          <div className="cv-scroll wp-cv-col" style={{
             width: "52%",
-            height: "100vh",
+            height: "calc(100vh - 56px)",
             overflowY: "auto",
             borderRight: "1px solid var(--border-color)",
             backgroundColor: "#ffffff",
@@ -4489,9 +4490,9 @@ ${candidateName}`;
           </div>
 
           {/* ── RIGHT COLUMN: AI Chat Panel ── */}
-          <div style={{
+          <div className="wp-chat-col" style={{
             width: '48%',
-            height: '100vh',
+            height: 'calc(100vh - 56px)',
             display: 'flex',
             flexDirection: 'column',
             backgroundColor: '#ffffff',
@@ -4726,7 +4727,7 @@ ${candidateName}`;
                 </div>
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '0.9rem' }}>
+              <div className="jobs-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.9rem' }}>
                 {matchedJobs.map(({ job, matched, roleMatch }) => {
                   const strong = roleMatch && matched.length >= 3;
                   return (
