@@ -1626,22 +1626,27 @@ export default function Home() {
         setCvDraftData(prev => ({ ...prev, name: val }));
         const curPos = cvDraftData?.position || 'MERN Stack Developer';
         replyText = "**Confirm your target job role**";
-        replyHint = 'Tap to confirm, choose below, or type your own';
-        const defaultOptions = ['MERN Stack Developer', 'Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 'Data Analyst', 'DevOps Engineer'];
-        replySuggestions = curPos ? [`Keep "${curPos}"`, ...defaultOptions.filter(o => o.toLowerCase() !== curPos.toLowerCase())] : defaultOptions;
+        replyHint = 'Tap your role below, or type a new custom title';
+        replySuggestions = [`Keep "${curPos}"`, 'Add New Role'];
         setHeaderQuestionIdx(1);
       }
     } else if (headerQuestionIdx === 1) {
-      const posToSet = (userText.startsWith('Keep "') && userText.endsWith('"'))
-        ? userText.slice(6, -1)
-        : userText;
-      setCvDraftData(prev => ({ ...prev, position: posToSet }));
-      replyText = "**Add your key skills**";
-      replyHint = skillsHint;
-      replyKeySkillsPicker = true;
-      replySkillPool = keySkillPool(posToSet);
-      setKeySkills([]);
-      setHeaderQuestionIdx(2);
+      if (userText === 'Add New Role' || userText === 'Type Custom Role') {
+        replyText = "**Type your custom job role title below**";
+        replyHint = 'e.g. Senior Full Stack Engineer, Cloud Architect, etc.';
+        setHeaderQuestionIdx(1);
+      } else {
+        const posToSet = (userText.startsWith('Keep "') && userText.endsWith('"'))
+          ? userText.slice(6, -1)
+          : userText;
+        setCvDraftData(prev => ({ ...prev, position: posToSet }));
+        replyText = "**Add your key skills**";
+        replyHint = skillsHint;
+        replyKeySkillsPicker = true;
+        replySkillPool = keySkillPool(posToSet);
+        setKeySkills([]);
+        setHeaderQuestionIdx(2);
+      }
     } else if (headerQuestionIdx === 2) {
       setCvDraftData(prev => ({ ...prev, skills: categorizeSkills(userText) }));
       replyText = "**Enter your email address**";
