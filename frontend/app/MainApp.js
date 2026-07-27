@@ -958,6 +958,7 @@ export default function Home() {
     }
   }, [pathname]);
 
+
   const navigateToRoute = (routeKey) => {
     if (routeKey === 'joblists' && !cvCompleted) {
       alert("Please complete your CV in IntelliHire Workplace first to unlock Job Listings!");
@@ -979,6 +980,7 @@ export default function Home() {
     setSearchQuery('');
     setActivePill('All');
   };
+
 
   // ═══════════════════════════════════════════════════════════
   // AI SECTION EDITOR — chat-driven editing per CV section:
@@ -1007,6 +1009,59 @@ export default function Home() {
   };
   // Guided work-experience flow — asks company → title → duration, then a role-based bullet picker.
   const [expFlow, setExpFlow] = useState(null); // { stage: 'company'|'title'|'duration'|'bullets', draft, pool, chosen }
+
+  // ── Session persistence ──────────────────────────────────────
+  // The whole CV lives in React state, so a refresh wiped it while the URL
+  // stayed on /joblists — leaving an empty CV and, because job matching is
+  // derived from the CV, "No matching jobs yet". Snapshot the build into
+  // sessionStorage and restore it on mount so a reload is survivable.
+  // Touched inside effects only: sessionStorage doesn't exist during SSR.
+  const SESSION_KEY = 'intellihire:build';
+  const [sessionRestored, setSessionRestored] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s.cvDraftData) setCvDraftData(s.cvDraftData);
+        if (s.activePill) setActivePill(s.activePill);
+        if (Array.isArray(s.keySkills)) setKeySkills(s.keySkills);
+        if (s.customOptimizationResult) setCustomOptimizationResult(s.customOptimizationResult);
+        if (Array.isArray(s.chatMessages) && s.chatMessages.length) setChatMessages(s.chatMessages);
+        if (typeof s.chatStep === 'number') setChatStep(s.chatStep);
+        setHasUploadedCV(!!s.hasUploadedCV);
+        setIsAnalyzed(!!s.isAnalyzed);
+        setCvCompleted(!!s.cvCompleted);
+      }
+    } catch {
+      // Corrupt or unavailable storage (private mode, quota) — start fresh.
+    }
+    setSessionRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sessionRestored) return;
+    try {
+      window.sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+        cvDraftData, activePill, keySkills, customOptimizationResult,
+        chatMessages, chatStep, hasUploadedCV, isAnalyzed, cvCompleted,
+      }));
+    } catch {
+      // Over quota or storage disabled — persistence is best-effort.
+    }
+  }, [sessionRestored, cvDraftData, activePill, keySkills, customOptimizationResult,
+      chatMessages, chatStep, hasUploadedCV, isAnalyzed, cvCompleted]);
+
+  // Landing on /joblists without a finished CV — a bookmark, or a refresh from
+  // before the snapshot existed — would render the completed-CV layout empty.
+  // Send those visitors to the builder instead of a dead page.
+  useEffect(() => {
+    if (!sessionRestored) return;
+    if (pathname === '/joblists' && !cvCompleted) navigateToRoute('home');
+    // Runs once, as soon as the restore attempt has settled.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionRestored]);
 
   const pushAiMessage = (msg) =>
     setChatMessages(prev => [...prev, { id: Date.now() + Math.random(), sender: 'ai', ...msg }]);
