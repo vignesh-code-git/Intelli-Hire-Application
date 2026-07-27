@@ -160,19 +160,21 @@ STORAGES = {
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# CORS: set CORS_ALLOWED_ORIGINS to the frontend URL(s), comma-separated, to
-# override this list.
+# CORS. The deployed frontend is always allowed; CORS_ALLOWED_ORIGINS adds
+# further origins (comma-separated) rather than replacing this list.
 #
-# The deployed frontend is listed as a default because render.yaml marks the
-# variable `sync: false`, so Render never sets it on its own. Falling through to
-# "allow nothing" meant the API answered every request with the full payload and
-# the browser discarded all of it — a healthy backend that looked broken.
+# It is additive on purpose. When the variable replaced the defaults, one stale
+# or mistyped value in the dashboard silently locked out the production site:
+# the API answered every request with the full payload and the browser threw it
+# all away, which looks like a dead backend but isn't. The origin the frontend
+# is actually deployed at should not be something a stray env var can drop.
 DEFAULT_CORS_ORIGINS = [
     'https://intelli-hire-application.vercel.app',
 ]
 
 _cors_origins = [o.strip().rstrip('/') for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
-CORS_ALLOWED_ORIGINS = _cors_origins or DEFAULT_CORS_ORIGINS
+# dict.fromkeys de-duplicates while preserving order
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(DEFAULT_CORS_ORIGINS + _cors_origins))
 # Vercel builds every branch and PR on its own subdomain; allow those too so
 # preview deployments aren't silently broken.
 CORS_ALLOWED_ORIGIN_REGEXES = [r'^https://intelli-hire-application-[\w-]+\.vercel\.app$']
