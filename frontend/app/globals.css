@@ -1776,6 +1776,37 @@ body {
 .ih-card { transition: transform 0.16s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.16s, border-color 0.16s; }
 .ih-card:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1); border-color: #93c5fd; }
 
+/* ── Terminal step in a chat flow (e.g. "Confirm & Complete CV") ──
+   Deliberately unlike the pill-shaped "Edit …" chips above it: full width,
+   solid, and separated by a rule so it reads as the end of the build. */
+/* Scoped to .ih-msgs so it outranks the blanket `.ih-msgs button` tap-target
+   floor set in the mobile layer. */
+.ih-msgs .ih-primary-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 56px;
+  /* generous gap so it reads as the end of the build, not one more chip */
+  margin-top: 1.25rem;
+  padding: 0.9rem 1.25rem;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.28) !important;
+  transition: filter 0.16s ease, transform 0.16s ease;
+}
+.ih-msgs .ih-primary-action > svg { width: 1.15rem; height: 1.15rem; flex-shrink: 0; }
+.ih-msgs .ih-primary-action:hover { filter: brightness(1.06); }
+.ih-msgs .ih-primary-action:active { transform: translateY(1px); }
+
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE — mobile · tablet · laptop · desktop · TV
    Breakpoints: ≤480 small phone · ≤640 phone · ≤1024 tablet ·
@@ -1786,6 +1817,253 @@ body {
 html, body { max-width: 100%; overflow-x: hidden; }
 img, svg, video { max-width: 100%; }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   MATCHED JOB CARDS
+   Each card answers three questions in order: what the role is, how well
+   the CV fits it, and exactly which requirements are met or missing.
+═══════════════════════════════════════════════════════════════════════ */
+
+.jobs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.jl-job-card {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.15rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+.jl-job-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.09);
+  transform: translateY(-2px);
+}
+
+/* ── Header: logo · title/company · match score ── */
+.jl-job-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+.jl-job-logo {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  color: var(--accent-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.15rem;
+}
+.jl-job-ident { flex: 1; min-width: 0; }
+.jl-job-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 750;
+  line-height: 1.3;
+  color: var(--text-dark);
+  letter-spacing: -0.01em;
+}
+.jl-job-meta {
+  margin: 0.2rem 0 0 0;
+  font-size: 0.78rem;
+  color: var(--text-gray);
+  line-height: 1.35;
+}
+.jl-job-company { font-weight: 650; color: var(--text-dark); }
+.jl-dot { margin: 0 0.3rem; color: #cbd5e1; }
+
+/* Match score — the headline number, colour-coded by tier */
+.jl-match {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  padding: 0.35rem 0.5rem;
+  border-radius: 12px;
+  line-height: 1.1;
+}
+.jl-match-pct { font-size: 1.05rem; font-weight: 850; letter-spacing: -0.02em; }
+.jl-match-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+}
+.jl-match-strong  { background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; }
+.jl-match-good    { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+.jl-match-partial { background: #f8fafc; border: 1px solid var(--border-color); color: #64748b; }
+
+/* ── Requirements block ── */
+.jl-req {
+  margin-top: 0.95rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed #e8edf4;
+}
+.jl-req-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+.jl-req-title {
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+.jl-req-count { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+.jl-req-count strong { color: #047857; font-weight: 800; }
+
+/* Coverage bar — how much of the role the CV already covers */
+.jl-req-bar {
+  height: 5px;
+  border-radius: 50px;
+  background: #eef2f7;
+  overflow: hidden;
+  margin-bottom: 0.6rem;
+}
+.jl-req-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 50px;
+  background: linear-gradient(90deg, #34d399, #059669);
+  transition: width 0.4s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.jl-req-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jl-req-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.28rem 0.6rem;
+  border-radius: 50px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  color: var(--text-gray);
+}
+.jl-req-chip > svg { width: 0.7rem; height: 0.7rem; flex-shrink: 0; }
+/* Met requirements read as earned, not just highlighted */
+.jl-req-chip.is-matched {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+  font-weight: 700;
+}
+
+/* ── Footer: salary + match type + apply ── */
+.jl-job-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.95rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f1f5f9;
+}
+.jl-job-facts {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.jl-salary { font-size: 0.82rem; font-weight: 750; color: var(--text-dark); }
+.jl-tag {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 50px;
+}
+.jl-tag-role   { background: rgba(37, 99, 235, 0.08); color: var(--accent-blue); }
+.jl-tag-skills { background: #f1f5f9; color: var(--text-muted); }
+
+.jl-apply-btn {
+  flex-shrink: 0;
+  padding: 0.5rem 1.1rem;
+  border-radius: 9px;
+  border: none;
+  background: var(--accent-blue);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+.jl-apply-btn:hover { background: #1d4ed8; }
+
+
+/* ── Flat buttons: remove all drop shadows from buttons ── */
+button { box-shadow: none !important; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOBILE APP LAYER
+   ───────────────────────────────────────────────────────────────────────
+   Phones get a native-app shell rather than a squeezed desktop page:
+
+     • primary navigation moves to a fixed bottom tab bar (thumb reach)
+     • the workspace becomes two full-screen views — Build / CV Preview —
+       switched by a segmented control, instead of one endless scroll
+     • every control is at least 44px, the iOS/Material minimum
+     • layout heights use dvh + env(safe-area-inset-*) so browser chrome
+       and the notch/home indicator never clip the composer
+
+   Chrome heights live in custom properties so each surface can subtract
+   them without hard-coding magic numbers.
+═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --nav-h: 56px;          /* sticky top header */
+  --wptabs-h: 0px;        /* workspace Build/Preview switcher (mobile only) */
+  --tabbar-h: 0px;        /* fixed bottom tab bar (mobile only) */
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --tap: 44px;            /* minimum tap target */
+}
+
+/* The bottom tab bar and the workspace switcher are phone/tablet furniture —
+   hidden by default so desktop renders exactly as before. */
+.app-tabbar { display: none; }
+.wp-viewtabs { display: none; }
+
+/* Copy that names where the chat lives: "to the right" on desktop,
+   "the Build tab" once the workspace splits into switchable views. */
+.hint-narrow { display: none; }
+@media (max-width: 1024px) {
+  .hint-wide { display: none; }
+  .hint-narrow { display: inline; }
+}
+
 /* ── Large screens & TV: cap width so content doesn't stretch edge-to-edge ── */
 @media (min-width: 1600px) {
   .workplace-row { max-width: 1600px; margin: 0 auto; box-shadow: 0 0 0 1px var(--border-color); }
@@ -1795,10 +2073,53 @@ img, svg, video { max-width: 100%; }
   .workplace-row { max-width: 1800px; }
 }
 
-/* ── Tablet and below: stack the workspace vertically ──
-   Chat (where you type) comes first so the input is reachable on the first
-   screen; the CV preview sits below it. ── */
+
+/* ═══════════════════════════════════════════════
+   TABLET AND BELOW (≤1024px)
+   The workspace splits into two switchable views.
+═══════════════════════════════════════════════ */
 @media (max-width: 1024px) {
+  /* Pin the header height so the column maths below is exact — left to its
+     own padding the bar measures 60px and the workspace overflows by 4px. */
+  :root { --nav-h: 60px; --wptabs-h: 56px; }
+  .app-navbar { height: var(--nav-h); }
+
+  /* Segmented control — sticks under the header */
+  .wp-viewtabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem;
+    position: sticky;
+    top: var(--nav-h);
+    z-index: 60;
+    height: var(--wptabs-h);
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .wp-viewtab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    height: var(--tap);
+    border: none;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+  }
+  .wp-viewtab svg { width: 0.95rem; height: 0.95rem; flex-shrink: 0; }
+  .wp-viewtab.active { background: var(--accent-blue); color: #ffffff; }
+
+  /* Only the selected view occupies the screen — no stacked mega-scroll */
   .workplace-row {
     flex-direction: column !important;
     min-height: 0 !important;
@@ -1806,86 +2127,429 @@ img, svg, video { max-width: 100%; }
     height: auto !important;
     overflow: visible !important;
   }
-  .wp-chat-col {
-    order: -1 !important;
+  .wp-chat-col,
+  .wp-cv-col {
     width: 100% !important;
-    height: calc(100vh - 56px) !important;
-    min-height: 480px !important;
     position: static !important;
     border-left: none !important;
-    border-bottom: 1px solid var(--border-color) !important;
+    border-right: none !important;
+    height: calc(100vh - var(--nav-h) - var(--wptabs-h) - var(--tabbar-h)) !important;
+    height: calc(100dvh - var(--nav-h) - var(--wptabs-h) - var(--tabbar-h)) !important;
+    max-height: none !important;
   }
   .wp-cv-col {
-    order: 1 !important;
-    width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    border-right: none !important;
-    padding: 1.75rem 1.75rem !important;
-  }
-}
-
-/* ── Phones ── */
-@media (max-width: 640px) {
-  /* Navbar: brand on top, nav becomes a swipeable pill bar below */
-  .app-navbar { flex-wrap: wrap; gap: 0.5rem; padding: 0.55rem 0.9rem !important; }
-  .app-nav {
-    width: 100%;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    scrollbar-width: none;
+    overflow-y: auto !important;
+    padding: 1.5rem 1.5rem 2.5rem 1.5rem !important;
     -webkit-overflow-scrolling: touch;
   }
-  .app-nav::-webkit-scrollbar { display: none; }
-  .app-nav-btn {
-    flex-shrink: 0;
-    white-space: nowrap;
-    font-size: 0.72rem !important;
-    padding: 0.4rem 0.75rem !important;
+  .wp-mv-build  .wp-cv-col   { display: none !important; }
+  .wp-mv-preview .wp-chat-col { display: none !important; }
+}
+
+
+/* ═══════════════════════════════════════════════
+   PHONES (≤767px) — bottom tab bar navigation
+   768px is iPad portrait: it keeps the top pill nav and just gets the
+   split workspace from the ≤1024px block above.
+═══════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  :root {
+    --nav-h: 54px;
+    --tabbar-h: calc(58px + var(--safe-b));
   }
 
-  /* Workspace CV column: tighter padding */
-  .wp-cv-col { padding: 1.25rem 1rem !important; }
-  .wp-chat-col { height: 80vh !important; }
+  /* ── Top header: slim, single row, brand only ── */
+  .app-navbar {
+    height: var(--nav-h);
+    padding: 0 1rem !important;
+    padding-left: calc(1rem + var(--safe-l)) !important;
+    padding-right: calc(1rem + var(--safe-r)) !important;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+  .app-nav { display: none !important; }   /* replaced by the bottom tab bar */
 
-  /* Landing hero scales down */
-  .hero-title { font-size: 1.95rem !important; line-height: 1.15; }
+  /* ── Bottom tab bar ── */
+  .app-tabbar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 200;
+    height: var(--tabbar-h);
+    padding-bottom: var(--safe-b);
+    padding-left: var(--safe-l);
+    padding-right: var(--safe-r);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border-color);
+  }
+  .app-tabbar-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.18rem;
+    min-height: var(--tap);
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .app-tabbar-btn:disabled { color: #cbd5e1; cursor: not-allowed; }
+  .app-tabbar-btn.active { color: var(--accent-blue); }
+  .app-tabbar-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .app-tabbar-icon > svg { width: 1.3rem; height: 1.3rem; stroke-width: 2.1; }
+  .app-tabbar-lock {
+    position: absolute;
+    right: -7px;
+    bottom: -2px;
+    width: 0.62rem !important;
+    height: 0.62rem !important;
+  }
+  .app-tabbar-label {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  .app-tabbar-btn.active .app-tabbar-label { font-weight: 800; }
+
+  /* Home page scrolls behind the tab bar — give the content room to clear it */
+  .home-view {
+    min-height: calc(100dvh - var(--nav-h)) !important;
+    justify-content: flex-start !important;
+    padding: 1.5rem 1rem calc(var(--tabbar-h) + 1.5rem) 1rem !important;
+  }
+
+  /* ── Workspace switcher sits directly under the slim header ── */
+  .wp-viewtabs { top: var(--nav-h); }
+
+  /* ── Chat: composer clears the tab bar, messages get breathing room ── */
+  /* The "Build" tab already names this panel — reclaim the duplicate title bar
+     for the message list, which is the scarcest space on a phone. */
+  .wp-chat-heading { display: none !important; }
+  .ih-msgs { padding: 1rem 0.85rem !important; gap: 0.85rem !important; }
+
+  /* The 2.5rem avatar indent costs a phone most of its usable card width —
+     option chips, pickers and forms read better flush with the bubble. */
+  .ih-msg-extras { padding-left: 0.5rem !important; }
+
+  /* Suggestion chips, option buttons and the skill/experience pickers are the
+     primary way the CV gets built on a phone. They're inline-styled in dozens
+     of places, so set the floor here rather than at each call site. */
+  .ih-msgs button {
+    min-height: var(--tap);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* In-chat form cards (experience, projects, education). Anything under 16px
+     makes iOS Safari zoom the whole page the moment the field is focused. */
+  .ih-msgs input:not([type="checkbox"]):not([type="radio"]),
+  .ih-msgs textarea,
+  .ih-msgs select {
+    font-size: 16px !important;
+    min-height: var(--tap);
+    width: 100%;
+    max-width: 100%;
+  }
+  /* Month/year pairs stay side by side — they'd look broken stacked */
+  .ih-msgs select { width: auto; min-width: 0; }
+
+  /* Tick boxes: bigger box, and the wrapping label gives the row a full-size
+     hit area (clicking a label toggles its checkbox natively). */
+  .ih-msgs input[type="checkbox"],
+  .ih-msgs input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    accent-color: var(--accent-blue);
+  }
+  .ih-msgs label:has(input[type="checkbox"]),
+  .ih-msgs label:has(input[type="radio"]) {
+    min-height: var(--tap);
+    padding: 0.3rem 0;
+    font-size: 0.8rem !important;
+    line-height: 1.4;
+  }
+
+  /* Icon-only controls on the CV (edit pencils, remove ✕) are deliberately
+     small so they don't crowd the résumé. Grow the *touch* area with an
+     overlay instead of the box, so nothing shifts. */
+  .wp-cv-col button::after,
+  .jl-cv-card button::after,
+  .upload-success-banner-remove::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--tap);
+    height: var(--tap);
+    transform: translate(-50%, -50%);
+  }
+  .wp-cv-col button,
+  .jl-cv-card button,
+  .upload-success-banner-remove { position: relative; }
+  .ih-msg-row > div { max-width: 96% !important; }
+  .ih-composer { gap: 0.4rem !important; }
+  .wp-upload-btn {
+    padding: 0 !important;
+    width: var(--tap) !important;
+    height: var(--tap) !important;
+    justify-content: center !important;
+  }
+  .wp-upload-text { display: none !important; }
+  .ih-mic-btn, .ih-send-btn {
+    width: var(--tap) !important;
+    height: var(--tap) !important;
+  }
+  /* 16px keeps iOS Safari from zooming the page when the field is focused */
+  .ih-composer textarea {
+    min-height: var(--tap) !important;
+    font-size: 16px !important;
+    padding: 0.7rem 0.85rem !important;
+  }
+
+  /* ── Section rail: one swipeable row of full-size chips ── */
+  .wp-section-rail {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    gap: 0.4rem !important;
+    padding: 0.6rem 0.85rem !important;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+  .wp-section-rail::-webkit-scrollbar { display: none; }
+  .wp-section-rail button {
+    flex-shrink: 0;
+    min-height: 40px;
+    padding: 0.5rem 0.95rem !important;
+    font-size: 0.74rem !important;
+    scroll-snap-align: start;
+  }
+
+  /* ── Search + role switcher ── */
+  /* Tall enough that the Search button inside still clears 44px */
+  .search-bar-container { height: 52px !important; }
+  .search-input { font-size: 16px !important; }
+  .search-button {
+    height: var(--tap) !important;
+    font-size: 0.78rem !important;
+    padding: 0 1rem !important;
+  }
+  .wp-switch-role {
+    min-height: var(--tap);
+    padding: 0.5rem 0 !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* ── Landing hero ── */
+  .hero-title { font-size: 2rem !important; line-height: 1.14; }
   .hero-desc { font-size: 0.95rem !important; padding: 0 0.25rem; }
 
-  /* Job cards go single-column so nothing overflows */
+  /* Stats: an even 2×2 grid instead of a ragged wrap */
+  .home-stats {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem !important;
+    width: 100%;
+    max-width: 420px;
+  }
+  .home-stats > div {
+    min-width: 0 !important;
+    padding: 0.7rem 0.5rem !important;
+  }
+
+  /* The header already carries the logo — don't spend the first screen on it twice */
+  .home-brandmark { display: none !important; }
+
+  /* Roles: a tidy grid of full-size tap targets. auto-fill gives two columns
+     on a normal phone and folds to one on very narrow devices. */
+  .home-role-list {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.5rem !important;
+    width: 100%;
+    max-width: 480px;
+    padding: 0 0.25rem;
+  }
+  .home-role-list .pill-tag {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: var(--tap);
+    padding: 0.5rem 0.6rem;
+    font-size: 0.78rem;
+    line-height: 1.25;
+  }
+
+  /* ── Job listings ── */
+  .jl-scroll {
+    height: calc(100vh - var(--nav-h)) !important;
+    height: calc(100dvh - var(--nav-h)) !important;
+    padding-bottom: 0 !important;
+  }
+  .jl-topbar { padding: 0.7rem 1rem !important; }
+  .jl-topbar-inner { gap: 0.7rem !important; }
+  .jl-main { padding: 1.25rem 1rem 0 1rem !important; }
+  .jl-head h1 { font-size: 1.35rem !important; }
+  .jl-head p { font-size: 0.84rem !important; }
+
+  /* The floating PDF button overlapped the CV name on narrow cards —
+     put it on its own row above the résumé instead. */
+  .jl-cv-card {
+    padding: 1.25rem 1.1rem !important;
+    border-radius: 14px !important;
+    margin-bottom: 1.5rem !important;
+  }
+  .jl-pdf-btn {
+    position: static !important;
+    margin: 0 0 1rem auto !important;
+    min-height: var(--tap);
+    padding: 0.6rem 1.1rem !important;
+  }
+
   .jobs-grid { grid-template-columns: 1fr !important; }
+  .jl-job-card { padding: 1rem !important; }
+  .jl-apply-btn {
+    min-height: var(--tap);
+    padding: 0.6rem 1.25rem !important;
+    font-size: 0.8rem !important;
+  }
 
-  /* Modals fit the screen */
-  .upload-modal-content, .paste-modal-content { max-width: 94vw !important; padding: 1.5rem !important; }
-}
+  /* Last job card must clear the fixed tab bar */
+  .jl-main { padding-bottom: calc(var(--tabbar-h) + 1.5rem) !important; }
 
-/* ── Small phones ── */
-@media (max-width: 400px) {
-  .hero-title { font-size: 1.7rem !important; }
-  .app-nav-btn { font-size: 0.68rem !important; padding: 0.38rem 0.6rem !important; }
-  .wp-cv-col { padding: 1rem 0.85rem !important; }
-}
+  /* ── Modals become bottom sheets ── */
+  .upload-modal-content, .paste-modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 88dvh !important;
+    overflow-y: auto !important;
+    padding: 1.35rem 1.15rem calc(1.35rem + var(--safe-b)) 1.15rem !important;
+    border-radius: 20px 20px 0 0 !important;
+    margin-top: auto !important;
+  }
+  /* Both the upload and paste dialogs share this overlay */
+  .paste-modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .paste-modal-content button,
+  .upload-modal-content button {
+    min-height: var(--tap);
+  }
+  .modal-close-btn {
+    min-width: var(--tap);
+    min-height: var(--tap);
+  }
 
-/* ── Flat buttons: remove all drop shadows from buttons ── */
-button { box-shadow: none !important; }
-
-/* ── Chat composer / input area responsive ── */
-@media (max-width: 640px) {
-  .ih-composer { gap: 0.4rem !important; }
-  .wp-upload-btn { padding: 0 !important; width: 48px !important; justify-content: center !important; }
-  .wp-upload-text { display: none !important; }
-  .ih-mic-btn, .ih-send-btn { width: 48px !important; height: 48px !important; }
-  .ih-composer textarea { min-height: 48px !important; font-size: 0.9rem !important; padding: 0.7rem 0.85rem !important; }
-  /* Chat message bubbles use a bit more width on narrow screens */
-  .ih-msg-row > div { max-width: 96% !important; }
-}
-@media (max-width: 400px) {
-  .wp-upload-btn { width: 44px !important; }
-  .ih-mic-btn, .ih-send-btn { width: 44px !important; height: 44px !important; }
-}
-
-/* ── Section-editor forms: stack 2-col grids on phones ── */
-@media (max-width: 640px) {
+  /* Section-editor forms stack */
   .form-grid-2 { grid-template-columns: 1fr !important; }
+}
+
+
+/* ═══════════════════════════════════════════════
+   LANDSCAPE PHONES — very little vertical room
+   Three stacked bars would leave the chat a sliver, so the chrome slims
+   down and the tab bar drops to icons only.
+═══════════════════════════════════════════════ */
+/* A phone held sideways is usually wider than 767px, so it picks up the top
+   pill nav rather than the bottom tab bar — the right trade when vertical
+   space is the scarce resource. Slim the remaining chrome either way. */
+@media (max-width: 1024px) and (max-height: 500px) and (orientation: landscape) {
+  :root {
+    --nav-h: 46px;
+    --wptabs-h: 44px;
+  }
+  .wp-viewtabs { padding: 0.25rem 0.75rem; }
+  .wp-viewtab { height: 36px; }
+
+  /* Everything above the message list is overhead here — the "Build" tab
+     already titles the panel, and the rail scrolls instead of wrapping. */
+  .wp-chat-heading { display: none !important; }
+  .wp-section-rail {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    padding: 0.4rem 0.85rem !important;
+    scrollbar-width: none;
+  }
+  .wp-section-rail::-webkit-scrollbar { display: none; }
+  .wp-section-rail button { flex-shrink: 0; min-height: 36px; }
+  .ih-msgs { padding: 0.65rem 0.85rem !important; }
+}
+
+/* Narrow landscape (small phones) still shows the tab bar — shrink it to
+   icons only. Buttons carry aria-label, so hiding the text is safe. */
+@media (max-width: 767px) and (max-height: 500px) and (orientation: landscape) {
+  :root { --tabbar-h: calc(46px + var(--safe-b)); }
+  .app-tabbar-label { display: none; }
+  .app-tabbar-icon > svg { width: 1.4rem; height: 1.4rem; }
+}
+
+
+/* ═══════════════════════════════════════════════
+   SMALL PHONES (≤400px)
+═══════════════════════════════════════════════ */
+@media (max-width: 400px) {
+  .hero-title { font-size: 1.72rem !important; }
+  .wp-cv-col { padding: 1.1rem 0.9rem 2.5rem 0.9rem !important; }
+  .app-tabbar-label { font-size: 0.62rem; }
+  .jl-cv-card { padding: 1rem 0.85rem !important; }
+}
+
+
+/* ═══════════════════════════════════════════════
+   TOUCH-DEVICE POLISH
+═══════════════════════════════════════════════ */
+
+/* Kill the grey flash on tap, then add a deliberate pressed state so
+   controls still acknowledge touch. */
+@media (hover: none) and (pointer: coarse) {
+  a, button, .pill-tag, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:active:not(:disabled), .pill-tag:active { opacity: 0.7; }
+
+  /* Hover styling never applies on touch, so don't let it stick after a tap */
+  .ih-card:hover { transform: none; box-shadow: none; }
+}
+
+/* Momentum scrolling + don't let inner scrollers rubber-band the whole page */
+.cv-scroll, .ih-msgs, .wp-section-rail, .pill-list {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Keep iOS from inflating text when the device is rotated to landscape */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* Long unbroken strings (emails, URLs, skill lists) must wrap, not overflow */
+.resume-body, .resume-text, .resume-list li, .jl-job-card { overflow-wrap: anywhere; }
+
+/* Visible keyboard focus for anyone navigating without a mouse */
+:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

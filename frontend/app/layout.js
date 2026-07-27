@@ -9,6 +9,13 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  // Draw under the notch/home indicator so the header and bottom tab bar can
+  // paint edge-to-edge; the CSS uses env(safe-area-inset-*) to stay clear.
+  viewportFit: "cover",
+  // Shrink the layout viewport when the on-screen keyboard opens so the chat
+  // composer stays visible instead of being covered.
+  interactiveWidget: "resizes-content",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({ children }) {
