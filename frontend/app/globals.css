@@ -569,7 +569,6 @@ body {
 }
 
 .matched-job-card:hover {
-  box-shadow: var(--shadow-md);
   border-color: #cbd5e1;
 }
 
@@ -1386,58 +1385,48 @@ body {
   margin: 0 auto 3.5rem auto;
 }
 
-/* Custom Scrollbar Styles for entire page & all scrollable views */
+/* Scrollbars: neutral and quiet. These were accent-blue and forced with
+   !important on every scrollable element, which painted a blue stripe down
+   the side of anything that could scroll — including the chat composer, where
+   a 2px sliver of it read as a stray blue line inside the input. */
 ::-webkit-scrollbar {
-  width: 8px !important;
-  height: 8px !important;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #ffffff !important;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--accent-blue) !important;
-  border-radius: 10px !important;
-  border: 2px solid #ffffff !important;
+  background: #cbd5e1;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #1d4ed8 !important;
+  background: #94a3b8;
+  background-clip: content-box;
 }
 
 * {
-  scrollbar-color: var(--accent-blue) #ffffff;
+  scrollbar-color: #cbd5e1 transparent;
   scrollbar-width: thin;
 }
+
+/* The composer grows to a max height and scrolls internally; a scrollbar
+   inside a rounded input just looks like a defect. */
+.ih-composer textarea {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ih-composer textarea::-webkit-scrollbar { display: none; }
 
 .app-container {
   padding-bottom: 14rem !important;
 }
 
-/* PDF generation overrides for clean B&W print layout */
-.printing-pdf {
-  color: #000000 !important;
-  background-color: #ffffff !important;
-}
-.printing-pdf .resume-name {
-  color: #000000 !important;
-}
-.printing-pdf .resume-title {
-  color: #000000 !important;
-}
-.printing-pdf .resume-section-header {
-  color: #000000 !important;
-  border-bottom-color: #000000 !important;
-}
-.printing-pdf .highlight {
-  background-color: transparent !important;
-  color: #000000 !important;
-  border-bottom: none !important;
-  padding: 0 !important;
-}
-.printing-pdf .ats-circle-badge,
-.printing-pdf .card-badge,
-.printing-pdf .section-ai-icon {
-  display: none !important;
-}
+/* The .printing-pdf overrides that lived here dressed the DOM for an
+   html2canvas screenshot. The PDF is now drawn as text by cvPdf.js, which
+   never touches the DOM, so nothing applied them any more. */
 
 /* 8. Available Jobs Grid & Radar Scanner Animation */
 .jobs-grid-layout {
@@ -1711,12 +1700,6 @@ body {
 .section-edit-icon:hover {
   opacity: 1;
   background-color: rgba(37, 99, 235, 0.12);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.18);
-}
-
-.printing-pdf .section-edit-icon {
-  display: none !important;
 }
 
 @keyframes pulse {
@@ -1757,8 +1740,9 @@ body {
 
 /* Chips & pill buttons — subtle lift + brighten on hover */
 .ih-chip { transition: transform 0.16s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.16s, filter 0.16s; }
-.ih-chip:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3); }
-.ih-chip:active { transform: translateY(0); filter: brightness(0.98); }
+/* Flat: colour shift only, no lift or drop shadow */
+.ih-chip:hover { filter: brightness(0.97); }
+.ih-chip:active { filter: brightness(0.94); }
 
 .ih-upload-btn { transition: all 0.16s; }
 .ih-upload-btn:hover { background: var(--accent-light) !important; border-color: var(--accent-blue) !important; box-shadow: 0 3px 10px rgba(37, 99, 235, 0.16); }
@@ -1773,8 +1757,8 @@ body {
 .ih-composer:focus-within { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), 0 8px 24px rgba(37, 99, 235, 0.07); }
 
 /* Card / suggestion hover */
-.ih-card { transition: transform 0.16s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.16s, border-color 0.16s; }
-.ih-card:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1); border-color: #93c5fd; }
+.ih-card { transition: background 0.16s, border-color 0.16s; }
+.ih-card:hover { background: #f8fafc; border-color: #93c5fd; }
 
 /* ── Terminal step in a chat flow (e.g. "Confirm & Complete CV") ──
    Deliberately unlike the pill-shaped "Edit …" chips above it: full width,
@@ -1818,39 +1802,115 @@ html, body { max-width: 100%; overflow-x: hidden; }
 img, svg, video { max-width: 100%; }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   MATCHED JOB CARDS
-   Each card answers three questions in order: what the role is, how well
-   the CV fits it, and exactly which requirements are met or missing.
+   JOB LISTINGS — top bar
+═══════════════════════════════════════════════════════════════════════ */
+
+.jl-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-color);
+}
+.jl-topbar-inner {
+  max-width: 860px;
+  margin: 0 auto;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 1.5rem;
+}
+.jl-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text-dark);
+  letter-spacing: -0.02em;
+}
+.jl-brand > svg { width: 1.45rem; height: 1.45rem; }
+.jl-topbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 0 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--text-gray);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.jl-topbar-action:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: var(--text-dark);
+}
+
+/* The finished CV is a document here, not an editing surface */
+.resume-body.is-readonly .section-edit-icon { display: none !important; }
+.resume-body.is-readonly [contenteditable] { cursor: default; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MATCHED JOB LIST
+   One role per row, scanned top to bottom: who and where, how well the CV
+   fits, which requirements are met, and the action. Flat by design — no
+   lift, scale or drop shadow; separation comes from the rule between rows.
 ═══════════════════════════════════════════════════════════════════════ */
 
 .jobs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 1rem;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: #ffffff;
+  overflow: hidden;
 }
 
 .jl-job-card {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.25rem;
+  padding: 1.05rem 1.25rem;
+  border-top: 1px solid var(--border-color);
   background: #ffffff;
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 1.15rem 1.25rem;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  transition: background 0.14s ease;
 }
-.jl-job-card:hover {
-  border-color: #bfdbfe;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.09);
-  transform: translateY(-2px);
+.jl-job-card:first-child { border-top: none; }
+.jl-job-card:hover { background: #fbfcfe; }
+
+/* Role, employer and requirements — the scannable part */
+.jl-job-main { flex: 1; min-width: 0; }
+
+/* Score and action, right-aligned and vertically centred against the row */
+.jl-job-side {
+  flex-shrink: 0;
+  width: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
 }
 
-/* ── Header: logo · title/company · match score ── */
+/* ── Header: logo · title/company ── */
 .jl-job-head {
   display: flex;
   align-items: flex-start;
-  gap: 0.8rem;
+  gap: 0.7rem;
+  min-width: 0;
 }
 .jl-job-logo {
   flex-shrink: 0;
@@ -1891,9 +1951,8 @@ img, svg, video { max-width: 100%; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 58px;
-  padding: 0.35rem 0.5rem;
-  border-radius: 12px;
+  padding: 0.4rem 0.5rem;
+  border-radius: 10px;
   line-height: 1.1;
 }
 .jl-match-pct { font-size: 1.05rem; font-weight: 850; letter-spacing: -0.02em; }
@@ -1908,45 +1967,25 @@ img, svg, video { max-width: 100%; }
 .jl-match-good    { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
 .jl-match-partial { background: #f8fafc; border: 1px solid var(--border-color); color: #64748b; }
 
-/* ── Requirements block ── */
-.jl-req {
-  margin-top: 0.95rem;
-  padding-top: 0.85rem;
-  border-top: 1px dashed #e8edf4;
-}
+/* ── Requirements ── */
+.jl-req { margin-top: 0.7rem; }
 .jl-req-head {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: 0.5rem;
-  margin-bottom: 0.45rem;
+  margin: 0 0 0.4rem 0;
 }
 .jl-req-title {
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.09em;
   color: var(--text-muted);
 }
-.jl-req-count { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+.jl-req-count { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
 .jl-req-count strong { color: #047857; font-weight: 800; }
 
 /* Coverage bar — how much of the role the CV already covers */
-.jl-req-bar {
-  height: 5px;
-  border-radius: 50px;
-  background: #eef2f7;
-  overflow: hidden;
-  margin-bottom: 0.6rem;
-}
-.jl-req-bar > span {
-  display: block;
-  height: 100%;
-  border-radius: 50px;
-  background: linear-gradient(90deg, #34d399, #059669);
-  transition: width 0.4s cubic-bezier(0.2, 0, 0, 1);
-}
-
 .jl-req-list {
   display: flex;
   flex-wrap: wrap;
@@ -1976,25 +2015,10 @@ img, svg, video { max-width: 100%; }
   font-weight: 700;
 }
 
-/* ── Footer: salary + match type + apply ── */
-.jl-job-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 0.95rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid #f1f5f9;
-}
-.jl-job-facts {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-.jl-salary { font-size: 0.82rem; font-weight: 750; color: var(--text-dark); }
+.jl-salary { font-weight: 700; color: var(--text-dark); }
 .jl-tag {
+  text-align: center;
+  white-space: nowrap;
   font-size: 0.6rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -2007,13 +2031,15 @@ img, svg, video { max-width: 100%; }
 
 .jl-apply-btn {
   flex-shrink: 0;
-  padding: 0.5rem 1.1rem;
+  width: 100%;
+  min-height: 36px;
+  padding: 0.45rem 0.9rem;
   border-radius: 9px;
   border: none;
   background: var(--accent-blue);
   color: #ffffff;
   font-family: inherit;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 750;
   cursor: pointer;
   transition: background 0.16s ease;
@@ -2461,8 +2487,8 @@ button { box-shadow: none !important; }
     height: calc(100dvh - var(--nav-h)) !important;
     padding-bottom: 0 !important;
   }
-  .jl-topbar { padding: 0.7rem 1rem !important; }
-  .jl-topbar-inner { gap: 0.7rem !important; }
+  .jl-topbar-inner { height: 56px; padding: 0 1rem; gap: 0.7rem; }
+  .jl-topbar-action { min-height: var(--tap); }
   .jl-main { padding: 1.25rem 1rem 0 1rem !important; }
   .jl-head h1 { font-size: 1.35rem !important; }
   .jl-head p { font-size: 0.84rem !important; }
@@ -2481,12 +2507,24 @@ button { box-shadow: none !important; }
     padding: 0.6rem 1.1rem !important;
   }
 
-  .jobs-grid { grid-template-columns: 1fr !important; }
-  .jl-job-card { padding: 1rem !important; }
+  /* Stack the score/action column under the role on a phone */
+  .jl-job-card {
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1rem !important;
+  }
+  .jl-job-side {
+    width: 100% !important;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .jl-match { flex-direction: row; gap: 0.3rem; align-items: baseline; }
+  .jl-job-side .jl-tag { margin-right: auto; }
   .jl-apply-btn {
+    width: auto !important;
     min-height: var(--tap);
     padding: 0.6rem 1.25rem !important;
-    font-size: 0.8rem !important;
   }
 
   /* Last job card must clear the fixed tab bar */

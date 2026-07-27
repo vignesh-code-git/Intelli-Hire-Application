@@ -3009,45 +3009,17 @@ export default function Home() {
     document.body.removeChild(element);
   };
 
-  // Pixel-exact PDF: captures the on-screen CV with html2canvas so the PDF
-  // matches the left-side preview's exact layout, spacing, and typography.
+  // Exports real text, not a screenshot — see cvPdf.js for why that matters.
   const handleDownloadPdf = async () => {
-    const node = optimizedCardRef.current;
-    if (!node) return;
     try {
-      const [{ jsPDF }, html2canvas] = await Promise.all([
+      const [{ jsPDF }, { buildCvPdf, cvFileName }] = await Promise.all([
         import('jspdf'),
-        import('html2canvas').then(m => m.default || m),
+        import('./cvPdf'),
       ]);
-      node.classList.add('printing-pdf');
-      const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
-      node.classList.remove('printing-pdf');
-
-      const doc = new jsPDF('p', 'pt', 'a4');
-      const W = doc.internal.pageSize.getWidth();
-      const H = doc.internal.pageSize.getHeight();
-      const margin = 30;
-      const imgW = W - margin * 2;
-      const pageContentH = H - margin * 2;
-      const pxPerPt = canvas.width / imgW;
-      const pagePx = Math.floor(pageContentH * pxPerPt);
-
-      let rendered = 0;
-      while (rendered < canvas.height) {
-        const sliceH = Math.min(pagePx, canvas.height - rendered);
-        const slice = document.createElement('canvas');
-        slice.width = canvas.width;
-        slice.height = sliceH;
-        slice.getContext('2d').drawImage(canvas, 0, rendered, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-        if (rendered > 0) doc.addPage();
-        doc.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, imgW, sliceH / pxPerPt);
-        rendered += sliceH;
-      }
-
-      const candidateName = cvDraftData.name || parsedCV?.name || 'My';
-      doc.save(`${candidateName}_CV.pdf`);
+      const cv = cvDraftData?.name ? cvDraftData : { ...cvDraftData, ...(parsedCV || {}) };
+      const doc = buildCvPdf(jsPDF, cv, categorizeSkills(cv.skills));
+      doc.save(cvFileName(cv));
     } catch (err) {
-      if (node) node.classList.remove('printing-pdf');
       console.error('PDF generation failed:', err);
       alert('PDF generation failed. Please try again.');
     }
@@ -3753,7 +3725,10 @@ ${candidateName}`;
     );
   };
 
-  const renderCVContent = (cv, isOptimized = false) => {
+  // readOnly renders the finished document only: no edit pencils, no section
+  // click targets, no inline contentEditable. The Job Listings page shows the
+  // CV as the artefact being applied with — editing belongs in the Workspace.
+  const renderCVContent = (cv, isOptimized = false, readOnly = false) => {
     if (!cv) return null;
 
     const name = cv.name || "Name";
@@ -3832,7 +3807,15 @@ ${candidateName}`;
       achievements = altItems.slice(4);
     }
 
-    const getEditableLineProps = (sectionKey, updateFn) => ({
+    // In read-only mode the section wrappers lose their badge, highlight and
+    // click target so the CV reads as a finished document.
+    const badgeFor = readOnly ? () => null : renderSectionBadge;
+    const styleFor = readOnly
+      ? () => ({ position: 'relative', marginBottom: '0.85rem', padding: '0.25rem 0.25rem 0.25rem 0.55rem' })
+      : getSectionStyle;
+    const clickFor = readOnly ? undefined : handleSectionClick;
+
+    const getEditableLineProps = (sectionKey, updateFn) => readOnly ? {} : ({
       contentEditable: true,
       suppressContentEditableWarning: true,
       onFocus: (e) => {
@@ -3853,15 +3836,15 @@ ${candidateName}`;
     });
 
     return (
-      <div className="resume-body" style={{ fontSize: "0.81rem", color: "#1e293b", fontFamily: "var(--font-sans)", lineHeight: "1.45" }}>
+      <div className={`resume-body${readOnly ? ' is-readonly' : ''}`} style={{ fontSize: "0.81rem", color: "#1e293b", fontFamily: "var(--font-sans)", lineHeight: "1.45" }}>
         {/* Name Header */}
         {isSectionVisible('header') && (
-          <div onClick={() => handleSectionClick('header')} style={getSectionStyle('header')}>
-            {renderSectionBadge('header')}
+          <div onClick={() => clickFor && clickFor('header')} style={styleFor('header')}>
+            {badgeFor('header')}
             <button
               className="section-edit-icon"
               style={{ position: 'absolute', top: '0.45rem', right: '0.55rem' }}
-              onClick={(e) => { e.stopPropagation(); handleSectionClick('header'); }}
+              onClick={(e) => { e.stopPropagation(); clickFor && clickFor('header'); }}
               title="Edit Header & Contact"
             >
               <EditPencilIcon />
@@ -3890,13 +3873,13 @@ ${candidateName}`;
 
         {/* Professional Summary */}
         {isSectionVisible('summary') && (
-          <div onClick={() => handleSectionClick('summary')} style={getSectionStyle('summary')}>
-            {renderSectionBadge('summary')}
+          <div onClick={() => clickFor && clickFor('summary')} style={styleFor('summary')}>
+            {badgeFor('summary')}
             <div className="resume-section-header">
               <span>Professional Summary</span>
               <button
                 className="section-edit-icon"
-                onClick={(e) => { e.stopPropagation(); handleSectionClick('summary'); }}
+                onClick={(e) => { e.stopPropagation(); clickFor && clickFor('summary'); }}
                 title="Click to edit text directly on CV"
               >
                 <EditPencilIcon />
@@ -3914,13 +3897,13 @@ ${candidateName}`;
 
         {/* Technical Skills */}
         {isSectionVisible('skills') && (
-          <div onClick={() => handleSectionClick('skills')} style={getSectionStyle('skills')}>
-            {renderSectionBadge('skills')}
+          <div onClick={() => clickFor && clickFor('skills')} style={styleFor('skills')}>
+            {badgeFor('skills')}
             <div className="resume-section-header">
               <span>Technical Skills</span>
               <button
                 className="section-edit-icon"
-                onClick={(e) => { e.stopPropagation(); handleSectionClick('skills'); }}
+                onClick={(e) => { e.stopPropagation(); clickFor && clickFor('skills'); }}
                 title="Edit Technical Skills"
               >
                 <EditPencilIcon />
@@ -3973,13 +3956,13 @@ ${candidateName}`;
 
         {/* Work Experience */}
         {isSectionVisible('experience') && (
-          <div onClick={() => handleSectionClick('experience')} style={getSectionStyle('experience')}>
-            {renderSectionBadge('experience')}
+          <div onClick={() => clickFor && clickFor('experience')} style={styleFor('experience')}>
+            {badgeFor('experience')}
             <div className="resume-section-header">
               <span>Work Experience</span>
               <button
                 className="section-edit-icon"
-                onClick={(e) => { e.stopPropagation(); handleSectionClick('experience'); }}
+                onClick={(e) => { e.stopPropagation(); clickFor && clickFor('experience'); }}
                 title="Edit Work Experience"
               >
                 <EditPencilIcon />
@@ -4035,13 +4018,13 @@ ${candidateName}`;
 
         {/* Projects */}
         {isSectionVisible('projects') && (
-          <div onClick={() => handleSectionClick('projects')} style={getSectionStyle('projects')}>
-            {renderSectionBadge('projects')}
+          <div onClick={() => clickFor && clickFor('projects')} style={styleFor('projects')}>
+            {badgeFor('projects')}
             <div className="resume-section-header">
               <span>Projects</span>
               <button
                 className="section-edit-icon"
-                onClick={(e) => { e.stopPropagation(); handleSectionClick('projects'); }}
+                onClick={(e) => { e.stopPropagation(); clickFor && clickFor('projects'); }}
                 title="Edit Projects"
               >
                 <EditPencilIcon />
@@ -4096,16 +4079,16 @@ ${candidateName}`;
 
         {/* Education */}
         {isSectionVisible('education') && (
-          <div onClick={() => handleSectionClick('education')} style={{
-            ...getSectionStyle('education'),
+          <div onClick={() => clickFor && clickFor('education')} style={{
+            ...styleFor('education'),
             ...(inlineEditSection === 'education' ? { outline: '2px dashed #2563eb', background: '#eff6ff33', borderRadius: '8px', padding: '0.35rem' } : {})
           }}>
-            {renderSectionBadge('education')}
+            {badgeFor('education')}
             <div className="resume-section-header">
               <span>Education</span>
               <button
                 className="section-edit-icon"
-                onClick={(e) => { e.stopPropagation(); handleSectionClick('education'); }}
+                onClick={(e) => { e.stopPropagation(); clickFor && clickFor('education'); }}
                 title="Click to edit text directly on CV"
               >
                 <EditPencilIcon />
@@ -4113,7 +4096,7 @@ ${candidateName}`;
             </div>
             {(!education || education.length === 0) ? emptyNote("Education") : Array.isArray(education) ? (
               <ul
-                contentEditable={inlineEditSection === 'education'}
+                contentEditable={!readOnly && inlineEditSection ==='education'}
                 suppressContentEditableWarning={true}
                 onBlur={(e) => {
                   const newText = e.currentTarget.innerText;
@@ -4129,7 +4112,7 @@ ${candidateName}`;
               </ul>
             ) : (
               <p
-                contentEditable={inlineEditSection === 'education'}
+                contentEditable={!readOnly && inlineEditSection ==='education'}
                 suppressContentEditableWarning={true}
                 onBlur={(e) => {
                   const newText = e.currentTarget.innerText;
@@ -4145,16 +4128,16 @@ ${candidateName}`;
 
         {/* Certifications & Training */}
         {isSectionVisible('certifications') && (
-          <div onClick={() => handleSectionClick('certifications')} style={{
-            ...getSectionStyle('certifications'),
+          <div onClick={() => clickFor && clickFor('certifications')} style={{
+            ...styleFor('certifications'),
             ...(inlineEditSection === 'certifications' ? { outline: '2px dashed #2563eb', background: '#eff6ff33', borderRadius: '8px', padding: '0.35rem' } : {})
           }}>
-            {renderSectionBadge('certifications')}
+            {badgeFor('certifications')}
             <div className="resume-section-header">
               <span>Certifications & Training</span>
               <button
                 className="section-edit-icon"
-                onClick={(e) => { e.stopPropagation(); handleSectionClick('certifications'); }}
+                onClick={(e) => { e.stopPropagation(); clickFor && clickFor('certifications'); }}
                 title="Click to edit text directly on CV"
               >
                 <EditPencilIcon />
@@ -4162,7 +4145,7 @@ ${candidateName}`;
             </div>
             {certifications.length === 0 ? emptyNote("Certifications") : (
             <ul
-              contentEditable={inlineEditSection === 'certifications'}
+              contentEditable={!readOnly && inlineEditSection ==='certifications'}
               suppressContentEditableWarning={true}
               onBlur={(e) => {
                 const lines = e.currentTarget.innerText.split('\n').map(l => l.trim()).filter(Boolean);
@@ -4180,16 +4163,16 @@ ${candidateName}`;
 
         {/* Achievements */}
         {isSectionVisible('achievements') && (
-          <div onClick={() => handleSectionClick('achievements')} style={{
-            ...getSectionStyle('achievements'),
+          <div onClick={() => clickFor && clickFor('achievements')} style={{
+            ...styleFor('achievements'),
             ...(inlineEditSection === 'achievements' ? { outline: '2px dashed #2563eb', background: '#eff6ff33', borderRadius: '8px', padding: '0.35rem' } : {})
           }}>
-            {renderSectionBadge('achievements')}
+            {badgeFor('achievements')}
             <div className="resume-section-header">
               <span>Achievements</span>
               <button
                 className="section-edit-icon"
-                onClick={(e) => { e.stopPropagation(); handleSectionClick('achievements'); }}
+                onClick={(e) => { e.stopPropagation(); clickFor && clickFor('achievements'); }}
                 title="Click to edit text directly on CV"
               >
                 <EditPencilIcon />
@@ -4197,7 +4180,7 @@ ${candidateName}`;
             </div>
             {achievements.length === 0 ? emptyNote("Achievements") : (
             <ul
-              contentEditable={inlineEditSection === 'achievements'}
+              contentEditable={!readOnly && inlineEditSection ==='achievements'}
               suppressContentEditableWarning={true}
               onBlur={(e) => {
                 const lines = e.currentTarget.innerText.split('\n').map(l => l.trim()).filter(Boolean);
@@ -4758,7 +4741,7 @@ ${candidateName}`;
                   return (
                     <button
                       key={sec}
-                      onClick={() => handleSectionClick(sec)}
+                      onClick={() => clickFor && clickFor(sec)}
                       style={{
                         padding: '0.35rem 0.8rem',
                         borderRadius: '7px',
@@ -4901,17 +4884,24 @@ ${candidateName}`;
         <div className="cv-scroll jl-scroll" style={{ height: '100vh', overflowY: 'auto', background: 'var(--bg-body)', paddingBottom: '3rem' }}>
 
           {/* Slim top bar: brand + search / role switch */}
-          <div className="jl-topbar" style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--border-color)', padding: '0.9rem 1.5rem' }}>
-            <div className="jl-topbar-inner" style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div onClick={handleGoHome} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, cursor: 'pointer' }} title="Go to Home Page">
-                <svg viewBox="0 0 24 24" fill="var(--accent-blue)" style={{ width: '1.5rem', height: '1.5rem' }}>
+          {/* Slim bar. The role search and "Switch Role" control that used to
+              live here are build-time tools — offering them beside a finished
+              CV invited restarting the build by accident. */}
+          <div className="jl-topbar">
+            <div className="jl-topbar-inner">
+              <div className="jl-brand" onClick={handleGoHome} title="Go to Home Page">
+                <svg viewBox="0 0 24 24" fill="var(--accent-blue)" aria-hidden="true">
                   <path d="M 8 3 Q 8 12 15 12 Q 8 12 8 21 Q 8 12 1 12 Q 8 12 8 3 Z" />
                   <path d="M 18 1 Q 18 7 23 7 Q 18 7 18 13 Q 18 7 13 7 Q 18 7 18 1 Z" />
                   <path d="M 16 13 Q 16 17 19.5 17 Q 16 17 16 21 Q 16 17 12.5 17 Q 16 17 16 13 Z" />
                 </svg>
-                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-dark)' }}>IntelliHire</span>
+                <span>IntelliHire</span>
               </div>
-              <div style={{ flex: 1 }}>{searchRolesBar}</div>
+              <button type="button" className="jl-topbar-action"
+                onClick={() => navigateToRoute('workplace')}>
+                <EditPencilIcon />
+                Edit in Workspace
+              </button>
             </div>
           </div>
 
@@ -4936,7 +4926,7 @@ ${candidateName}`;
                 <DownloadIcon /> PDF
               </button>
               <div id="cv-workspace" ref={optimizedCardRef} className="resume-card optimized" style={{ boxShadow: 'none', border: 'none', borderRadius: '0', height: 'auto', maxHeight: 'none', overflow: 'visible', padding: '0' }}>
-                {renderCVContent(cvDraftData, true)}
+                {renderCVContent(cvDraftData, true, true)}
               </div>
             </div>
 
@@ -5019,62 +5009,64 @@ ${candidateName}`;
                   const tier = score >= 70 ? 'strong' : score >= 40 ? 'good' : 'partial';
                   return (
                     <article key={job.id} className="jl-job-card">
-                      <header className="jl-job-head">
-                        <div className="jl-job-logo" aria-hidden="true">{(job.company || 'J').charAt(0)}</div>
-                        <div className="jl-job-ident">
-                          <h3 className="jl-job-title">{job.title}</h3>
-                          <p className="jl-job-meta">
-                            <span className="jl-job-company">{job.company}</span>
-                            <span className="jl-dot">·</span>
-                            {job.location}
-                          </p>
-                        </div>
+                      <div className="jl-job-main">
+                        <header className="jl-job-head">
+                          <div className="jl-job-logo" aria-hidden="true">{(job.company || 'J').charAt(0)}</div>
+                          <div className="jl-job-ident">
+                            <h3 className="jl-job-title">{job.title}</h3>
+                            <p className="jl-job-meta">
+                              <span className="jl-job-company">{job.company}</span>
+                              <span className="jl-dot">·</span>
+                              {job.location}
+                              {job.salary_range && (
+                                <>
+                                  <span className="jl-dot">·</span>
+                                  <span className="jl-salary">{job.salary_range}</span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+                        </header>
+
+                        {requirements.length > 0 && (
+                          <section className="jl-req">
+                            <p className="jl-req-head">
+                              <span className="jl-req-title">Requirements</span>
+                              <span className="jl-req-count">
+                                <strong>{matched.length}</strong>/{requirements.length} matched
+                              </span>
+                            </p>
+                            <ul className="jl-req-list">
+                              {ordered.map((req) => {
+                                const isMatched = matchedSet.has(req.toLowerCase());
+                                return (
+                                  <li key={req} className={isMatched ? 'jl-req-chip is-matched' : 'jl-req-chip'}>
+                                    {isMatched && (
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    )}
+                                    {req}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </section>
+                        )}
+                      </div>
+
+                      <aside className="jl-job-side">
                         <div className={`jl-match jl-match-${tier}`} title={`${matched.length} of ${requirements.length} requirements matched`}>
                           <span className="jl-match-pct">{score}%</span>
                           <span className="jl-match-label">match</span>
                         </div>
-                      </header>
-
-                      {requirements.length > 0 && (
-                        <section className="jl-req">
-                          <div className="jl-req-head">
-                            <span className="jl-req-title">Requirements</span>
-                            <span className="jl-req-count">
-                              <strong>{matched.length}</strong> of {requirements.length} matched
-                            </span>
-                          </div>
-                          <div className="jl-req-bar" role="presentation">
-                            <span style={{ width: `${requirements.length ? (matched.length / requirements.length) * 100 : 0}%` }} />
-                          </div>
-                          <ul className="jl-req-list">
-                            {ordered.map((req) => {
-                              const isMatched = matchedSet.has(req.toLowerCase());
-                              return (
-                                <li key={req} className={isMatched ? 'jl-req-chip is-matched' : 'jl-req-chip'}>
-                                  {isMatched && (
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  )}
-                                  {req}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </section>
-                      )}
-
-                      <footer className="jl-job-foot">
-                        <div className="jl-job-facts">
-                          {job.salary_range && <span className="jl-salary">{job.salary_range}</span>}
-                          <span className={`jl-tag jl-tag-${roleMatch ? 'role' : 'skills'}`}>
-                            {roleMatch ? 'Role match' : 'Skills match'}
-                          </span>
-                        </div>
+                        <span className={`jl-tag jl-tag-${roleMatch ? 'role' : 'skills'}`}>
+                          {roleMatch ? 'Role match' : 'Skills match'}
+                        </span>
                         <button type="button" onClick={() => handleEasyApply(job)} className="jl-apply-btn">
-                          Apply Now
+                          Apply
                         </button>
-                      </footer>
+                      </aside>
                     </article>
                   );
                 })}
