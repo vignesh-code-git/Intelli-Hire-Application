@@ -160,13 +160,24 @@ STORAGES = {
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# CORS: in production set CORS_ALLOWED_ORIGINS to the Vercel frontend URL(s),
-# comma-separated. Without it, all origins are allowed only in DEBUG mode.
-_cors_origins = [o for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o]
-if _cors_origins:
-    CORS_ALLOWED_ORIGINS = _cors_origins
-else:
-    CORS_ALLOW_ALL_ORIGINS = DEBUG
+# CORS: set CORS_ALLOWED_ORIGINS to the frontend URL(s), comma-separated, to
+# override this list.
+#
+# The deployed frontend is listed as a default because render.yaml marks the
+# variable `sync: false`, so Render never sets it on its own. Falling through to
+# "allow nothing" meant the API answered every request with the full payload and
+# the browser discarded all of it — a healthy backend that looked broken.
+DEFAULT_CORS_ORIGINS = [
+    'https://intelli-hire-application.vercel.app',
+]
+
+_cors_origins = [o.strip().rstrip('/') for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
+CORS_ALLOWED_ORIGINS = _cors_origins or DEFAULT_CORS_ORIGINS
+# Vercel builds every branch and PR on its own subdomain; allow those too so
+# preview deployments aren't silently broken.
+CORS_ALLOWED_ORIGIN_REGEXES = [r'^https://intelli-hire-application-[\w-]+\.vercel\.app$']
+# Local dev only: any origin, so a LAN device or a different port can be used.
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

@@ -35,6 +35,23 @@ Open http://localhost:3000. The frontend talks to the backend at `http://127.0.0
 
 ## Deployment
 
+Live instances:
+
+| Part | URL |
+|---|---|
+| Frontend (Vercel) | https://intelli-hire-application.vercel.app |
+| Backend (Render) | https://intelli-hire-application.onrender.com |
+
+The two must know about each other: the frontend needs the backend URL as
+`NEXT_PUBLIC_API_URL`, and the backend needs the frontend origin in
+`CORS_ALLOWED_ORIGINS`. Both now default to the URLs above in code, so a
+redeploy is enough — but setting them explicitly is still preferred, and
+required if either URL changes.
+
+> The backend runs on Render's free tier and sleeps after ~15 minutes idle.
+> The first request then takes up to a minute; the frontend shows a loading
+> state for it and recovers on its own once the service wakes.
+
 ### Backend → Render
 
 The repo includes a [render.yaml](render.yaml) blueprint. In Render: **New → Blueprint**, point it at this repo. It provisions:
@@ -42,7 +59,7 @@ The repo includes a [render.yaml](render.yaml) blueprint. In Render: **New → B
 - A Python web service (root dir `backend/`, gunicorn) with `SECRET_KEY` auto-generated and migrations run on each deploy
 - A managed PostgreSQL database wired in via `DATABASE_URL`
 
-After the first deploy, set the `CORS_ALLOWED_ORIGINS` env var to your Vercel URL (e.g. `https://your-app.vercel.app`) and seed the database from the Render shell:
+`CORS_ALLOWED_ORIGINS` is set by the blueprint to the Vercel URL above. Change it there (or in the dashboard) if the frontend URL changes — without a matching origin the API answers normally and the browser discards every response. Seed the database from the Render shell:
 
 ```bash
 python seed_jobs.py && python seed_cv_dataset.py
@@ -53,7 +70,9 @@ python seed_jobs.py && python seed_cv_dataset.py
 Import the repo in Vercel and set:
 
 - **Root Directory:** `frontend`
-- **Environment variable:** `NEXT_PUBLIC_API_URL` = your Render backend URL (e.g. `https://intellihire-backend.onrender.com`)
+- **Environment variable:** `NEXT_PUBLIC_API_URL` = `https://intelli-hire-application.onrender.com`
+
+`NEXT_PUBLIC_*` is inlined at build time, so setting or changing it requires a **redeploy** — saving the variable alone has no effect. A production build without it falls back to the URL above rather than to localhost.
 
 ## Environment variables
 

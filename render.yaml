@@ -14,9 +14,11 @@ services:
         fromDatabase:
           name: intellihire-db
           property: connectionString
-      # Set this to your Vercel frontend URL, e.g. https://intelli-hire.vercel.app
+      # The deployed Vercel frontend. Override in the dashboard to add more
+      # origins (comma-separated); settings.py falls back to this same URL if
+      # the variable is absent.
       - key: CORS_ALLOWED_ORIGINS
-        sync: false
+        value: https://intelli-hire-application.vercel.app
 
 databases:
   - name: intellihire-db

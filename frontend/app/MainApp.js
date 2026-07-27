@@ -9,9 +9,18 @@ import {
   PROJECT_BANK, CERTIFICATION_BANK, ACHIEVEMENT_BANK, SKILLSET_BANK, SECTION_LABELS,
 } from "./aiDataset";
 
-// Backend API base URL: set NEXT_PUBLIC_API_URL on Vercel to the Render
-// backend URL (e.g. https://intellihire-backend.onrender.com)
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+// Backend API base URL. NEXT_PUBLIC_API_URL wins and is inlined at build time,
+// so changing it on Vercel requires a redeploy.
+//
+// The fallback is environment-dependent on purpose: a production build that
+// falls back to localhost asks every visitor's browser to call their own
+// machine, which is why a deploy missing the variable worked only on the
+// developer's laptop. Development still falls back to the local server.
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://intelli-hire-application.onrender.com"
+    : "http://127.0.0.1:8000");
 
 // Premium SVG Icon Components
 const SparklesIcon = ({ className = "icon-svg", style }) => (
