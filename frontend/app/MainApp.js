@@ -2195,6 +2195,41 @@ export default function Home() {
     return () => { cancelled = true; document.removeEventListener("mousedown", handleClickOutside); };
   }, [jobsReloadKey]);
 
+  // Once we've given up, keep a quiet eye out for the backend coming back —
+  // starting the server shouldn't also require finding the Retry button. A
+  // single lightweight probe, so the "unavailable" message stays put instead
+  // of flickering back through the loading state on every check.
+  useEffect(() => {
+    if (jobsStatus !== 'unavailable') return;
+    let cancelled = false;
+
+    const probe = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/jobs/`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = data.jobs || [];
+        if (!cancelled && list.length) {
+          setJobs(list);
+          setJobsStatus('ready');
+        }
+      } catch {
+        // still down — try again on the next tick
+      }
+    };
+
+    const timer = setInterval(probe, 15000);
+    // Coming back to the tab is a good moment to look again
+    const onVisible = () => { if (document.visibilityState === 'visible') probe(); };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [jobsStatus]);
+
   // Speech to Text (Web Speech API SpeechRecognition)
   const handleSpeechToText = () => {
     if (typeof window === "undefined") return;
