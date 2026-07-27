@@ -663,6 +663,12 @@ export default function Home() {
   // when the job service is unreachable. Track that separately to say so.
   const [jobsStatus, setJobsStatus] = useState('loading'); // 'loading' | 'ready' | 'unavailable'
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
+  // NEXT_PUBLIC_API_URL is inlined at build time, so a deployment built without
+  // it ships the localhost fallback and asks every visitor's browser to call
+  // their own machine. Detect that (and plain-HTTP calls from an HTTPS page,
+  // which the browser blocks outright) so the error can name the real cause.
+  // Set after mount: window doesn't exist during SSR.
+  const [apiConfigError, setApiConfigError] = useState(null);
 
   // New States for AI Analyzer Flow
   const [hasUploadedCV, setHasUploadedCV] = useState(false);
@@ -2194,6 +2200,26 @@ export default function Home() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => { cancelled = true; document.removeEventListener("mousedown", handleClickOutside); };
   }, [jobsReloadKey]);
+
+  // Flag a deployment whose API base can never work from a browser, so the
+  // failure message can point at the env var instead of a localhost address.
+  useEffect(() => {
+    const isLoopback = (host) => /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/i.test(host);
+    let apiHost = '';
+    let apiProtocol = '';
+    try {
+      const url = new URL(API_BASE);
+      apiHost = url.hostname;
+      apiProtocol = url.protocol;
+    } catch {
+      return; // not a parseable absolute URL — leave it alone
+    }
+    if (!isLoopback(window.location.hostname) && isLoopback(apiHost)) {
+      setApiConfigError('unset');
+    } else if (window.location.protocol === 'https:' && apiProtocol === 'http:') {
+      setApiConfigError('insecure');
+    }
+  }, []);
 
   // Once we've given up, keep a quiet eye out for the backend coming back —
   // starting the server shouldn't also require finding the Retry button. A
@@ -4911,10 +4937,28 @@ ${candidateName}`;
                   ) : jobsStatus === 'unavailable' ? (
                     <>
                       <p className="jl-empty-title">Can&apos;t reach the job service</p>
-                      <p className="jl-empty-desc">
-                        Your CV is saved and ready — only the openings failed to load.
-                        Check that the backend is running at <code>{API_BASE}</code>, then try again.
-                      </p>
+                      {apiConfigError === 'unset' ? (
+                        <p className="jl-empty-desc">
+                          Your CV is saved and ready — only the openings failed to load.
+                          This deployment was built without <code>NEXT_PUBLIC_API_URL</code>,
+                          so it&apos;s calling <code>{API_BASE}</code> — your own machine, not the
+                          server. Set that variable to the backend URL and redeploy: it is baked
+                          in at build time, so changing it needs a fresh build.
+                        </p>
+                      ) : apiConfigError === 'insecure' ? (
+                        <p className="jl-empty-desc">
+                          Your CV is saved and ready — only the openings failed to load.
+                          This page is served over HTTPS but the API is configured as
+                          <code>{API_BASE}</code>, and browsers block plain-HTTP requests from a
+                          secure page. Point <code>NEXT_PUBLIC_API_URL</code> at an https:// URL
+                          and redeploy.
+                        </p>
+                      ) : (
+                        <p className="jl-empty-desc">
+                          Your CV is saved and ready — only the openings failed to load.
+                          Check that the backend is running at <code>{API_BASE}</code>, then try again.
+                        </p>
+                      )}
                       <button type="button" className="jl-empty-retry"
                         onClick={() => setJobsReloadKey(k => k + 1)}>
                         Retry
