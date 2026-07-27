@@ -669,6 +669,9 @@ export default function Home() {
   // which the browser blocks outright) so the error can name the real cause.
   // Set after mount: window doesn't exist during SSR.
   const [apiConfigError, setApiConfigError] = useState(null);
+  // Captured after mount rather than read inline in JSX, which would render
+  // differently on the server and trip hydration.
+  const [pageOrigin, setPageOrigin] = useState('');
 
   // New States for AI Analyzer Flow
   const [hasUploadedCV, setHasUploadedCV] = useState(false);
@@ -2187,8 +2190,20 @@ export default function Home() {
       const list = data.jobs || [];
       if (list.length) { setJobs(list); return true; }
       return false;
-    }).then((ok) => {
-      if (!cancelled) setJobsStatus(ok ? 'ready' : 'unavailable');
+    }).then(async (ok) => {
+      if (cancelled) return;
+      if (ok) { setJobsStatus('ready'); return; }
+      // A CORS rejection is indistinguishable from "server down" in a normal
+      // fetch — both surface as the same TypeError. A no-cors probe still
+      // resolves (opaquely) if the host answered at all, so if that succeeds
+      // the server is up and the browser is discarding the response.
+      try {
+        await fetch(`${API_BASE}/api/jobs/`, { mode: 'no-cors' });
+        if (!cancelled) setApiConfigError((prev) => prev || 'cors');
+      } catch {
+        // genuinely unreachable — leave the plain "not running" message
+      }
+      if (!cancelled) setJobsStatus('unavailable');
     });
     fetchWithRetry("/api/stats/", (data) => { setPlatformStats(data); return true; }, { retries: 6 });
 
@@ -2204,6 +2219,7 @@ export default function Home() {
   // Flag a deployment whose API base can never work from a browser, so the
   // failure message can point at the env var instead of a localhost address.
   useEffect(() => {
+    setPageOrigin(window.location.origin);
     const isLoopback = (host) => /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/i.test(host);
     let apiHost = '';
     let apiProtocol = '';
@@ -4941,14 +4957,24 @@ ${candidateName}`;
                         <p className="jl-empty-desc">
                           Your CV is saved and ready — only the openings failed to load.
                           This deployment was built without <code>NEXT_PUBLIC_API_URL</code>,
-                          so it&apos;s calling <code>{API_BASE}</code> — your own machine, not the
-                          server. Set that variable to the backend URL and redeploy: it is baked
-                          in at build time, so changing it needs a fresh build.
+                          so it&apos;s calling <code>{API_BASE}</code>{' '}
+                          — your own machine, not the server. Set that variable to the backend
+                          URL and redeploy: it is baked in at build time, so changing it needs
+                          a fresh build.
+                        </p>
+                      ) : apiConfigError === 'cors' ? (
+                        <p className="jl-empty-desc">
+                          Your CV is saved and ready — only the openings failed to load.
+                          The server at <code>{API_BASE}</code>{' '}
+                          answered, but your browser discarded the response because this origin
+                          isn&apos;t allowed. Add{' '}
+                          <code>{pageOrigin}</code> to <code>CORS_ALLOWED_ORIGINS</code> on the
+                          backend, then redeploy it.
                         </p>
                       ) : apiConfigError === 'insecure' ? (
                         <p className="jl-empty-desc">
                           Your CV is saved and ready — only the openings failed to load.
-                          This page is served over HTTPS but the API is configured as
+                          This page is served over HTTPS but the API is configured as{' '}
                           <code>{API_BASE}</code>, and browsers block plain-HTTP requests from a
                           secure page. Point <code>NEXT_PUBLIC_API_URL</code> at an https:// URL
                           and redeploy.
