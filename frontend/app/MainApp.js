@@ -658,6 +658,11 @@ export default function Home() {
   const [customOptimizationResult, setCustomOptimizationResult] = useState(null);
   const [customRecommendations, setCustomRecommendations] = useState([]);
   const [jobs, setJobs] = useState([]);
+  // Openings come from the backend while the CV is generated client-side, so
+  // the two can fail independently: a perfectly good CV still matches nothing
+  // when the job service is unreachable. Track that separately to say so.
+  const [jobsStatus, setJobsStatus] = useState('loading'); // 'loading' | 'ready' | 'unavailable'
+  const [jobsReloadKey, setJobsReloadKey] = useState(0);
 
   // New States for AI Analyzer Flow
   const [hasUploadedCV, setHasUploadedCV] = useState(false);
@@ -2159,21 +2164,25 @@ export default function Home() {
           const res = await fetch(`${API_BASE}${path}`);
           if (res.ok) {
             const data = await res.json();
-            if (cancelled) return;
-            if (apply(data) !== false) return; // success — stop retrying
+            if (cancelled) return true;
+            if (apply(data) !== false) return true; // success — stop retrying
           }
         } catch (err) {
           // backend likely waking up; retry after a delay
         }
         await new Promise((r) => setTimeout(r, delay));
       }
+      return false; // gave up
     };
 
     // Keep retrying until we get a non-empty job list (handles cold start / seeding)
+    setJobsStatus('loading');
     fetchWithRetry("/api/jobs/", (data) => {
       const list = data.jobs || [];
       if (list.length) { setJobs(list); return true; }
       return false;
+    }).then((ok) => {
+      if (!cancelled) setJobsStatus(ok ? 'ready' : 'unavailable');
     });
     fetchWithRetry("/api/stats/", (data) => { setPlatformStats(data); return true; }, { retries: 6 });
 
@@ -2184,7 +2193,7 @@ export default function Home() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => { cancelled = true; document.removeEventListener("mousedown", handleClickOutside); };
-  }, []);
+  }, [jobsReloadKey]);
 
   // Speech to Text (Web Speech API SpeechRecognition)
   const handleSpeechToText = () => {
@@ -4854,10 +4863,34 @@ ${candidateName}`;
                 )}
               </div>
 
+              {/* An empty list means one of three different things — say which,
+                  instead of blaming the CV when the job service is the problem. */}
               {matchedJobs.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)', background: '#ffffff', border: '1px dashed var(--border-color)', borderRadius: '14px' }}>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-gray)' }}>No matching jobs yet</p>
-                  <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.8rem' }}>Add more skills to your CV and matches will appear here.</p>
+                <div className="jl-empty">
+                  {jobsStatus === 'loading' ? (
+                    <>
+                      <span className="jl-empty-spinner" aria-hidden="true" />
+                      <p className="jl-empty-title">Loading openings…</p>
+                      <p className="jl-empty-desc">Fetching live jobs. A sleeping free-tier backend can take up to a minute to wake.</p>
+                    </>
+                  ) : jobsStatus === 'unavailable' ? (
+                    <>
+                      <p className="jl-empty-title">Can&apos;t reach the job service</p>
+                      <p className="jl-empty-desc">
+                        Your CV is saved and ready — only the openings failed to load.
+                        Check that the backend is running at <code>{API_BASE}</code>, then try again.
+                      </p>
+                      <button type="button" className="jl-empty-retry"
+                        onClick={() => setJobsReloadKey(k => k + 1)}>
+                        Retry
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="jl-empty-title">No matching jobs yet</p>
+                      <p className="jl-empty-desc">Add more skills to your CV and matches will appear here.</p>
+                    </>
+                  )}
                 </div>
               )}
 

@@ -2021,6 +2021,64 @@ img, svg, video { max-width: 100%; }
 .jl-apply-btn:hover { background: #1d4ed8; }
 
 
+/* ── Empty / loading / unreachable state for the matched-jobs list ── */
+.jl-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 1.25rem;
+  background: #ffffff;
+  border: 1px dashed var(--border-color);
+  border-radius: 14px;
+  color: var(--text-muted);
+}
+.jl-empty-title {
+  margin: 0;
+  font-weight: 750;
+  font-size: 0.95rem;
+  color: var(--text-gray);
+}
+.jl-empty-desc {
+  margin: 0.4rem 0 0 0;
+  font-size: 0.83rem;
+  line-height: 1.55;
+  max-width: 42ch;
+}
+.jl-empty-desc code {
+  background: #f1f5f9;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.jl-empty-retry {
+  margin-top: 1rem;
+  min-height: 44px;
+  padding: 0.6rem 1.5rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent-blue);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.jl-empty-retry:hover { background: #1d4ed8; }
+.jl-empty-spinner {
+  width: 26px;
+  height: 26px;
+  margin-bottom: 0.85rem;
+  border: 3px solid rgba(37, 99, 235, 0.15);
+  border-left-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+
 /* ── Flat buttons: remove all drop shadows from buttons ── */
 button { box-shadow: none !important; }
 
