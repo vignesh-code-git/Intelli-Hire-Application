@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { FiHome, FiFileText, FiBriefcase, FiLock } from "react-icons/fi";
+import { FiHome, FiFileText, FiBriefcase, FiLock, FiMessageSquare } from "react-icons/fi";
 import { ALTERNATIVE_SUMMARIES, ALTERNATIVE_EXPERIENCES, ALTERNATIVE_ACHIEVEMENTS, SKILLS_DB } from "./cvData";
 import {
   getRoleType, SUMMARY_BANK, EXPERIENCE_BANK, EDUCATION_BANK,
@@ -911,7 +911,7 @@ export default function Home() {
   // Right panel view: 'assistant' (chat) or 'jobs' (matches for the built CV)
   const [rightPanelTab, setRightPanelTab] = useState('assistant');
   // Once the guided build finishes, switch to the centered "finished CV" layout
-  // (CV at center, matching jobs below, floating command bar — no side chat).
+  // (CV at center, matching jobs below — no side chat).
   const [cvCompleted, setCvCompleted] = useState(false);
 
   // AI Chat & Template Profile States
@@ -941,6 +941,10 @@ export default function Home() {
   const optimizedCardRef = useRef(null);
   const dropdownRef = useRef(null);
   const [currentRoute, setCurrentRoute] = useState('home'); // 'home' | 'workplace' | 'joblists'
+  // Phones/tablets can't show the CV and the chat side by side, so the
+  // workspace becomes two full-screen views toggled by a segmented control.
+  // Ignored on desktop, where both columns are always visible.
+  const [mobileWpView, setMobileWpView] = useState('build'); // 'build' | 'preview'
   const pathname = usePathname();
   const router = useRouter();
 
@@ -1156,7 +1160,6 @@ export default function Home() {
         text: "**Your CV build is complete!** All sections have been formatted and tailored to your target role.\n\n" +
           "Would you like to **Confirm & Complete your CV** or **Edit any section**?",
         options: [
-          { label: 'Confirm Edition & Complete CV', action: 'confirm-complete' },
           { label: 'Edit Professional Summary', action: 'open', section: 'summary' },
           { label: 'Edit Technical Skills', action: 'open', section: 'skills' },
           { label: 'Edit Work Experience', action: 'open', section: 'experience' },
@@ -1165,6 +1168,9 @@ export default function Home() {
           { label: 'Edit Certifications', action: 'open', section: 'certifications' },
           { label: 'Edit Achievements', action: 'open', section: 'achievements' },
         ],
+        // Rendered below the edit chips as a full-width primary action — this
+        // ends the build, so it shouldn't look like one more "Edit…" chip.
+        primaryAction: { label: 'Confirm & Complete CV', action: 'confirm-complete' },
       });
       return;
     }
@@ -1989,7 +1995,6 @@ export default function Home() {
     setHasUploadedCV(true);
     setIsAnalyzed(true);
     setCustomOptimizationResult({ original_score: 75, optimized_score: 95 });
-    setCustomRecommendations(jobs.slice(0, 3));
     setChatStep(4);
   };
 
@@ -2200,10 +2205,6 @@ export default function Home() {
     setSectionEditFlow(null);
     setHeaderQuestionIdx(0);
     guidedRef.current = true;
-
-    // Matching jobs for the recommendations rail
-    const keyword = pill.toLowerCase().replace(" developer", "").replace(" engineer", "").trim();
-    setCustomRecommendations(jobs.filter(j => j.title.toLowerCase().includes(keyword)).slice(0, 6));
 
     setChatMessages([{
       id: Date.now(), sender: 'ai',
@@ -2691,13 +2692,9 @@ export default function Home() {
           optimized_score: 95
         });
 
-        // Filter matched jobs
-        const matchedJobs = jobs.filter(j => 
-          j.title.toLowerCase().includes(backendType) || 
-          j.description.toLowerCase().includes(backendType)
-        );
-        setCustomRecommendations(matchedJobs.length > 0 ? matchedJobs : jobs.slice(0, 3));
-
+        // Job matching is derived from the finished CV by getMatchedJobs() —
+        // customRecommendations is reserved for the backend's ML ranking on
+        // the uploaded-CV path.
         setChatStep(4);
         setIsOptimizing(false);
         setChatMessages(prev => [...prev, {
@@ -2734,17 +2731,51 @@ export default function Home() {
     qa: ["qa", "test", "quality", "sdet", "automation"],
   };
 
+  // Every skill the CV can claim: the headline picks plus the skills section.
   const getCvSkills = () => {
+    const out = [];
+    const header = cvDraftData?.headerSkills;
+    if (Array.isArray(header)) out.push(...header);
     const s = cvDraftData?.skills;
-    if (!s) return [];
-    const text = typeof s === "string" ? s : Object.values(s).filter(v => typeof v === "string").join(", ");
-    return text.split(/[,•|:]/).map(x => x.trim().toLowerCase()).filter(x => x.length > 1);
+    if (s) {
+      const text = typeof s === "string" ? s : Object.values(s).filter(v => typeof v === "string").join(", ");
+      out.push(...text.split(/[,•|:]/));
+    }
+    return [...new Set(out.map(x => String(x).trim().toLowerCase()).filter(x => x.length > 1))];
+  };
+
+  const normaliseRequirements = (req) =>
+    (Array.isArray(req) ? req : String(req || "").split(","))
+      .map(r => String(r).trim())
+      .filter(Boolean);
+
+  // "React.js" and "React" are the same skill; "Go" and "MongoDB" are not.
+  // Comparing on a stripped form and anchoring at the start avoids the
+  // substring false positives a plain `includes` produces.
+  const skillKey = (s) => String(s).toLowerCase().replace(/[^a-z0-9+#]/g, "");
+  // Short names that are themselves prefixes of unrelated technologies —
+  // claiming a Java requirement is met because the CV says JavaScript would
+  // overstate the match, so these only ever match exactly.
+  const EXACT_ONLY_SKILLS = new Set(["java", "c", "r", "go", "css", "html", "sql", "php", "ios"]);
+  const skillsMatch = (a, b) => {
+    const x = skillKey(a), y = skillKey(b);
+    if (!x || !y) return false;
+    if (x === y) return true;
+    if (EXACT_ONLY_SKILLS.has(x) || EXACT_ONLY_SKILLS.has(y)) return false;
+    return (x.length >= 3 && y.length >= 3) && (x.startsWith(y) || y.startsWith(x));
   };
 
   const getMatchedJobs = () => {
     // Uploaded-CV flow already gets ML-ranked recommendations from the backend
     if (customRecommendations.length > 0) {
-      return customRecommendations.map(job => ({ job, matched: job.matching_skills || [], roleMatch: true }));
+      return customRecommendations.map(job => {
+        const requirements = normaliseRequirements(job.requirements);
+        const matched = job.matching_skills || [];
+        return {
+          job, requirements, matched, roleMatch: true,
+          score: requirements.length ? Math.round((matched.length / requirements.length) * 100) : 0,
+        };
+      });
     }
     const position = cvDraftData?.position || activePill || "";
     if (!position) return [];
@@ -2752,17 +2783,23 @@ export default function Home() {
     const cvSkills = getCvSkills();
     const scored = [];
     for (const job of jobs) {
-      const title = job.title.toLowerCase();
+      const title = (job.title || "").toLowerCase();
       const roleMatch = keywords.some(k => title.includes(k));
-      const reqList = Array.isArray(job.requirements) ? job.requirements : String(job.requirements || "").split(",");
-      const matched = reqList.filter(r => {
-        const rl = r.toLowerCase().trim();
-        return rl && cvSkills.some(sk => rl.includes(sk) || sk.includes(rl));
-      });
-      if (roleMatch || matched.length >= 2) scored.push({ job, matched, roleMatch });
+      const requirements = normaliseRequirements(job.requirements);
+      const matched = requirements.filter(r => cvSkills.some(sk => skillsMatch(r, sk)));
+      if (!roleMatch && matched.length < 2) continue;
+      // Share of the role's requirements the CV already covers, nudged up when
+      // the job title itself matches the target role.
+      const coverage = requirements.length ? matched.length / requirements.length : 0;
+      const score = Math.min(99, Math.round(coverage * 100) + (roleMatch ? 12 : 0));
+      scored.push({ job, requirements, matched, roleMatch, score });
     }
-    scored.sort((a, b) => (Number(b.roleMatch) - Number(a.roleMatch)) || (b.matched.length - a.matched.length));
-    return scored.slice(0, 15);
+    scored.sort((a, b) =>
+      (Number(b.roleMatch) - Number(a.roleMatch)) ||
+      (b.score - a.score) ||
+      (b.matched.length - a.matched.length)
+    );
+    return scored.slice(0, 24);
   };
 
   // Filter jobs based on search query and active pill
@@ -3553,6 +3590,15 @@ ${candidateName}`;
             ))}
           </div>
         )}
+        {msg.primaryAction && (
+          <button type="button" className="ih-primary-action"
+            onClick={() => handleChatOption(msg.primaryAction)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+            </svg>
+            {msg.primaryAction.label}
+          </button>
+        )}
       </div>
     );
   };
@@ -3583,10 +3629,14 @@ ${candidateName}`;
     const contactRow1 = [phone, email, location].filter(Boolean);
     const contactRow2 = [portfolio, linkedin, github].filter(Boolean);
 
-    // Subtle placeholder shown for sections the chat hasn't filled yet
+    // Subtle placeholder shown for sections the chat hasn't filled yet.
+    // The chat sits to the right on desktop but behind the "Build" tab on
+    // phones, so the pointer changes with the layout (see globals.css).
     const emptyNote = (label) => (
       <p style={{ fontStyle: "italic", color: "#94a3b8", fontSize: "0.74rem", margin: "0.15rem 0 0.5rem 0" }}>
-        {label} not added yet — build it from the chat panel →
+        {label} not added yet — build it from the{" "}
+        <span className="hint-wide">chat panel →</span>
+        <span className="hint-narrow">Build tab</span>
       </p>
     );
 
@@ -4141,7 +4191,7 @@ ${candidateName}`;
           </div>
         )}
       </div>
-      <button type="button" onClick={() => setShowRoleDropdown(v => !v)}
+      <button type="button" onClick={() => setShowRoleDropdown(v => !v)} className="wp-switch-role"
         style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Switch Role
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.75rem', height: '0.75rem', strokeWidth: 3, transform: showRoleDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
@@ -4155,42 +4205,6 @@ ${candidateName}`;
           ))}
         </div>
       )}
-    </div>
-  );
-
-  // Floating command bar + latest AI reply popup, used in the finished-CV layout.
-  const lastAiReply = [...chatMessages].reverse().find(m => m.sender === 'ai');
-  const floatingComposer = (
-    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 1rem 1.5rem 1rem', pointerEvents: 'none', zIndex: 50 }}>
-      {lastAiReply && (
-        <div style={{ pointerEvents: 'auto', maxWidth: '640px', width: '100%', marginBottom: '0.75rem', display: 'flex', alignItems: 'flex-start', gap: '0.6rem', background: '#ffffff', border: '1px solid #e5eaf1', borderRadius: '16px', padding: '0.85rem 1.1rem', boxShadow: '0 12px 32px rgba(15,23,42,0.14)' }}>
-          <div style={{ flexShrink: 0, width: '30px', height: '30px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,0.25)' }}>
-            <svg viewBox="0 0 24 24" fill="white" style={{ width: '0.9rem', height: '0.9rem' }}><path d="M12 2L14.3 7.7L20 10L14.3 12.3L12 18L9.7 12.3L4 10L9.7 7.7L12 2Z" /></svg>
-          </div>
-          <div style={{ fontSize: '0.9rem', lineHeight: 1.55, color: '#1e293b' }}>
-            {lastAiReply.text.split('\n').map((line, lIdx) => (
-              <p key={lIdx} style={{ margin: 0, marginBottom: lIdx < lastAiReply.text.split('\n').length - 1 ? '0.4rem' : 0 }}>
-                {line.split('**').map((part, i) => i % 2 === 1 ? <strong key={i} style={{ fontWeight: 700 }}>{part}</strong> : part)}
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
-      <form onSubmit={handleSendChatMessage} style={{ pointerEvents: 'auto', maxWidth: '640px', width: '100%', display: 'flex', alignItems: 'flex-end', gap: '0.55rem', background: '#ffffff', border: '1px solid #e5eaf1', borderRadius: '20px', padding: '0.6rem 0.6rem 0.6rem 0.75rem', boxShadow: '0 12px 36px rgba(15,23,42,0.16)' }}>
-        <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChatMessage(e); } }}
-          placeholder="Ask AI to refine your CV — e.g. “change summary…”, “add a project…”" rows={1}
-          style={{ flex: 1, border: 'none', outline: 'none', resize: 'none', padding: '0.5rem 0.4rem', fontSize: '0.95rem', color: '#0f172a', fontFamily: 'inherit', lineHeight: '1.5', minHeight: '40px', maxHeight: '140px', backgroundColor: 'transparent' }}
-        />
-        <button type="button" onClick={handleSpeechToText} title={isListening ? 'Stop listening' : 'Speak'}
-          style={{ flexShrink: 0, width: '42px', height: '42px', borderRadius: '12px', border: '1px solid ' + (isListening ? '#fecaca' : 'var(--border-color)'), background: isListening ? '#fee2e2' : '#f8fafc', color: isListening ? '#ef4444' : '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1.1rem', height: '1.1rem', strokeWidth: 2.2 }}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-        </button>
-        <button type="submit" title="Send" disabled={isOptimizing}
-          style={{ flexShrink: 0, width: '42px', height: '42px', borderRadius: '12px', border: 'none', background: 'var(--accent-blue)', color: '#fff', opacity: isOptimizing ? 0.5 : 1, cursor: isOptimizing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 8px rgba(37,99,235,0.28)' }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '1.1rem', height: '1.1rem', strokeWidth: 2.5 }}><path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
-        </button>
-      </form>
     </div>
   );
 
@@ -4249,13 +4263,48 @@ ${candidateName}`;
     </header>
   );
 
+  // Phone navigation: a thumb-reachable bottom tab bar. The top pill nav is
+  // hidden below 768px (see globals.css) — this replaces it so the three
+  // routes get full-size tap targets instead of a cramped scrolling strip.
+  const renderMobileTabBar = () => (
+    <nav className="app-tabbar" aria-label="Main">
+      {[
+        { key: 'home', label: 'Home', Icon: FiHome, isDisabled: false },
+        { key: 'workplace', label: 'Workspace', Icon: FiFileText, isDisabled: false },
+        { key: 'joblists', label: 'Jobs', Icon: FiBriefcase, isDisabled: !cvCompleted },
+      ].map((route) => {
+        const active = currentRoute === route.key;
+        const Icon = route.Icon;
+        return (
+          <button
+            key={route.key}
+            type="button"
+            className={`app-tabbar-btn${active ? ' active' : ''}`}
+            disabled={route.isDisabled}
+            aria-current={active ? 'page' : undefined}
+            /* the label is hidden in landscape, so name the button explicitly */
+            aria-label={route.isDisabled ? `${route.label} — complete your CV first` : route.label}
+            title={route.isDisabled ? 'Complete your CV in Workplace first to unlock Job Listings!' : route.label}
+            onClick={() => navigateToRoute(route.key)}
+          >
+            <span className="app-tabbar-icon">
+              <Icon />
+              {route.isDisabled ? <FiLock className="app-tabbar-lock" /> : null}
+            </span>
+            <span className="app-tabbar-label">{route.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-body)", fontFamily: "var(--font-sans)" }}>
+    <div className="app-shell" data-route={currentRoute} style={{ minHeight: "100vh", backgroundColor: "var(--bg-body)", fontFamily: "var(--font-sans)" }}>
       {renderNavbar()}
 
       {/* ── ROUTE 1: HOME PAGE ── */}
       {currentRoute === 'home' && (
-        <div style={{
+        <div className="home-view" style={{
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
@@ -4264,7 +4313,7 @@ ${candidateName}`;
           padding: "2rem 1rem",
         }}>
           {/* Brand mark */}
-          <div onClick={handleGoHome} style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "2.5rem", cursor: "pointer" }} title="Go to Home Page">
+          <div className="home-brandmark" onClick={handleGoHome} style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "2.5rem", cursor: "pointer" }} title="Go to Home Page">
             <svg viewBox="0 0 24 24" fill="var(--accent-blue)" style={{ width: "2.4rem", height: "2.4rem" }}>
               <path d="M 8 3 Q 8 12 15 12 Q 8 12 8 21 Q 8 12 1 12 Q 8 12 8 3 Z" />
               <path d="M 18 1 Q 18 7 23 7 Q 18 7 18 13 Q 18 7 13 7 Q 18 7 18 1 Z" />
@@ -4279,7 +4328,7 @@ ${candidateName}`;
           </p>
 
           {/* Platform stats cards */}
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center", margin: "0.25rem 0 1.75rem 0" }}>
+          <div className="home-stats" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center", margin: "0.25rem 0 1.75rem 0" }}>
             {[
               { value: platformStats ? `${platformStats.total_jobs}+` : "190+", label: "Live Jobs" },
               { value: platformStats ? `${platformStats.total_companies}+` : "40+", label: "Companies" },
@@ -4307,7 +4356,7 @@ ${candidateName}`;
               </p>
               <span style={{ flex: 1, height: "1px", background: "var(--border-color)" }} />
             </div>
-            <div className="pill-list" style={{ maxHeight: "none", justifyContent: "center", maxWidth: "1000px" }}>
+            <div className="pill-list home-role-list" style={{ maxHeight: "none", justifyContent: "center", maxWidth: "1000px" }}>
               {categories.map((pill) => (
                 <span
                   key={pill}
@@ -4327,7 +4376,23 @@ ${candidateName}`;
 
       {/* ── ROUTE 2: INTELLIHIRE WORKPLACE (CV Builder) ── */}
       {currentRoute === 'workplace' && (
-        <div className="workplace-row" style={{ display: "flex", minHeight: "calc(100vh - 56px)", maxHeight: "calc(100vh - 56px)", overflow: "hidden" }}>
+        <>
+        {/* Phone/tablet only: swap between the chat builder and the CV preview.
+            Both columns render at all times — CSS hides one below 1024px. */}
+        <div className="wp-viewtabs" role="tablist" aria-label="Workspace view">
+          <button type="button" role="tab" aria-selected={mobileWpView === 'build'}
+            className={`wp-viewtab${mobileWpView === 'build' ? ' active' : ''}`}
+            onClick={() => setMobileWpView('build')}>
+            <FiMessageSquare /> Build
+          </button>
+          <button type="button" role="tab" aria-selected={mobileWpView === 'preview'}
+            className={`wp-viewtab${mobileWpView === 'preview' ? ' active' : ''}`}
+            onClick={() => setMobileWpView('preview')}>
+            <FiFileText /> CV Preview
+          </button>
+        </div>
+
+        <div className={`workplace-row wp-mv-${mobileWpView}`} style={{ display: "flex", minHeight: "calc(100vh - 56px)", maxHeight: "calc(100vh - 56px)", overflow: "hidden" }}>
 
           {/* ── LEFT COLUMN: Full-height CV ── */}
           <div className="cv-scroll wp-cv-col" style={{
@@ -4417,7 +4482,9 @@ ${candidateName}`;
             {!isOptimizing && isAnalyzed && customOptimizationResult && !parsedCV && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-gray)' }}>
-                  Building your <span style={{ color: 'var(--accent-blue)' }}>{cvDraftData?.position || 'CV'}</span> — follow the chat on the right
+                  Building your <span style={{ color: 'var(--accent-blue)' }}>{cvDraftData?.position || 'CV'}</span> —{" "}
+                  <span className="hint-wide">follow the chat on the right</span>
+                  <span className="hint-narrow">continue in the Build tab</span>
                 </span>
               </div>
             )}
@@ -4521,12 +4588,12 @@ ${candidateName}`;
               overflow: 'hidden'
             }}>
               {/* Chat panel main heading */}
-              <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-color)', background: 'linear-gradient(120deg, rgba(37,99,235,0.06) 0%, rgba(59,130,246,0.02) 55%, #ffffff 100%)', flexShrink: 0 }}>
+              <div className="wp-chat-heading" style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-color)', background: 'linear-gradient(120deg, rgba(37,99,235,0.06) 0%, rgba(59,130,246,0.02) 55%, #ffffff 100%)', flexShrink: 0 }}>
                 <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-dark)', letterSpacing: '-0.02em' }}>IntelliHire WorkPlace</h2>
               </div>
 
               {/* Section selector / Quick navigation — all headings visible (wrap) */}
-              <div style={{
+              <div className="wp-section-rail" style={{
                 display: 'flex',
                 gap: '0.45rem',
                 padding: '1rem 1.5rem',
@@ -4599,7 +4666,7 @@ ${candidateName}`;
                       </span>
                     )}
                     {msg.sender === 'ai' && msg === lastMessage && (
-                      <div style={{ width: '100%', paddingLeft: '2.5rem' }}>{renderMessageExtras(msg)}</div>
+                      <div className="ih-msg-extras" style={{ width: '100%', paddingLeft: '2.5rem' }}>{renderMessageExtras(msg)}</div>
                     )}
                   </div>
                 ))}
@@ -4676,15 +4743,16 @@ ${candidateName}`;
           </div>
 
         </div>
+        </>
       )}
 
       {/* ── ROUTE 3: JOB LISTINGS (Finished CV & Job Search) ── */}
       {currentRoute === 'joblists' && (
-        <div className="cv-scroll" style={{ height: '100vh', overflowY: 'auto', background: 'var(--bg-body)', paddingBottom: '11rem' }}>
+        <div className="cv-scroll jl-scroll" style={{ height: '100vh', overflowY: 'auto', background: 'var(--bg-body)', paddingBottom: '3rem' }}>
 
           {/* Slim top bar: brand + search / role switch */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--border-color)', padding: '0.9rem 1.5rem' }}>
-            <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="jl-topbar" style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--border-color)', padding: '0.9rem 1.5rem' }}>
+            <div className="jl-topbar-inner" style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div onClick={handleGoHome} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, cursor: 'pointer' }} title="Go to Home Page">
                 <svg viewBox="0 0 24 24" fill="var(--accent-blue)" style={{ width: '1.5rem', height: '1.5rem' }}>
                   <path d="M 8 3 Q 8 12 15 12 Q 8 12 8 21 Q 8 12 1 12 Q 8 12 8 3 Z" />
@@ -4697,10 +4765,10 @@ ${candidateName}`;
             </div>
           </div>
 
-          <div style={{ maxWidth: '860px', margin: '0 auto', padding: '2rem 1.5rem 0 1.5rem' }}>
+          <div className="jl-main" style={{ maxWidth: '860px', margin: '0 auto', padding: '2rem 1.5rem 0 1.5rem' }}>
 
             {/* Completion header */}
-            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <div className="jl-head" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', fontWeight: 700, color: '#047857', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '9999px', padding: '0.35rem 0.9rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ width: '0.8rem', height: '0.8rem', strokeWidth: 3 }}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                 CV Ready
@@ -4708,12 +4776,12 @@ ${candidateName}`;
               <h1 style={{ margin: '0.8rem 0 0.3rem 0', fontSize: '1.7rem', fontWeight: 800, color: 'var(--text-dark)', letterSpacing: '-0.02em' }}>
                 Your {cvDraftData?.position || 'Professional'} CV
               </h1>
-              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>ATS-optimised and ready to download. Refine anything from the command bar below.</p>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>ATS-optimised and ready to download. Head back to the Workspace to refine any section.</p>
             </div>
 
             {/* Centered CV card */}
-            <div style={{ position: 'relative', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: '18px', boxShadow: '0 12px 40px rgba(15,23,42,0.10)', padding: '2.5rem 2.75rem', marginBottom: '2.5rem' }}>
-              <button onClick={handleDownloadPdf} title="Download CV as PDF"
+            <div className="jl-cv-card" style={{ position: 'relative', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: '18px', boxShadow: '0 12px 40px rgba(15,23,42,0.10)', padding: '2.5rem 2.75rem', marginBottom: '2.5rem' }}>
+              <button onClick={handleDownloadPdf} title="Download CV as PDF" className="jl-pdf-btn"
                 style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', padding: '0.55rem 1rem', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 3px 8px rgba(37,99,235,0.25)' }}>
                 <DownloadIcon /> PDF
               </button>
@@ -4738,56 +4806,74 @@ ${candidateName}`;
                 </div>
               )}
 
-              <div className="jobs-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.9rem' }}>
-                {matchedJobs.map(({ job, matched, roleMatch }) => {
-                  const strong = roleMatch && matched.length >= 3;
+              <div className="jobs-grid">
+                {matchedJobs.map(({ job, requirements, matched, roleMatch, score }) => {
+                  const matchedSet = new Set(matched.map(m => m.toLowerCase()));
+                  // Requirements the CV already covers come first — a recruiter
+                  // (and the candidate) should see strengths before gaps.
+                  const ordered = [...requirements].sort(
+                    (a, b) => Number(matchedSet.has(b.toLowerCase())) - Number(matchedSet.has(a.toLowerCase()))
+                  );
+                  const tier = score >= 70 ? 'strong' : score >= 40 ? 'good' : 'partial';
                   return (
-                    <div key={job.id} style={{ background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '1.1rem 1.2rem', boxShadow: '0 1px 4px rgba(15, 23, 42, 0.04)' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--accent-light)', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.05rem', flexShrink: 0 }}>
-                          {(job.company || 'J').charAt(0)}
+                    <article key={job.id} className="jl-job-card">
+                      <header className="jl-job-head">
+                        <div className="jl-job-logo" aria-hidden="true">{(job.company || 'J').charAt(0)}</div>
+                        <div className="jl-job-ident">
+                          <h3 className="jl-job-title">{job.title}</h3>
+                          <p className="jl-job-meta">
+                            <span className="jl-job-company">{job.company}</span>
+                            <span className="jl-dot">·</span>
+                            {job.location}
+                          </p>
                         </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-dark)', lineHeight: 1.3 }}>{job.title}</p>
-                          <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.76rem', color: 'var(--text-gray)' }}>{job.company} · {job.location}</p>
+                        <div className={`jl-match jl-match-${tier}`} title={`${matched.length} of ${requirements.length} requirements matched`}>
+                          <span className="jl-match-pct">{score}%</span>
+                          <span className="jl-match-label">match</span>
                         </div>
-                        <span style={{
-                          flexShrink: 0, fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em',
-                          color: strong ? '#047857' : 'var(--accent-blue)',
-                          background: strong ? '#ecfdf5' : 'rgba(37, 99, 235, 0.07)',
-                          border: strong ? '1px solid #a7f3d0' : '1px solid rgba(37, 99, 235, 0.18)',
-                          borderRadius: '50px', padding: '0.25rem 0.6rem',
-                        }}>
-                          {strong ? 'Strong Match' : roleMatch ? 'Role Match' : 'Skills Match'}
-                        </span>
-                      </div>
+                      </header>
 
-                      {Array.isArray(job.requirements) && job.requirements.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.75rem' }}>
-                          {job.requirements.slice(0, 6).map((req) => {
-                            const isMatched = matched.includes(req);
-                            return (
-                              <span key={req} style={{
-                                fontSize: '0.68rem', fontWeight: 600, padding: '0.2rem 0.55rem', borderRadius: '50px',
-                                background: isMatched ? 'var(--accent-light)' : '#f1f5f9',
-                                color: isMatched ? 'var(--accent-blue)' : 'var(--text-gray)',
-                                border: isMatched ? '1px solid rgba(37, 99, 235, 0.25)' : '1px solid transparent',
-                              }}>
-                                {req}
-                              </span>
-                            );
-                          })}
-                        </div>
+                      {requirements.length > 0 && (
+                        <section className="jl-req">
+                          <div className="jl-req-head">
+                            <span className="jl-req-title">Requirements</span>
+                            <span className="jl-req-count">
+                              <strong>{matched.length}</strong> of {requirements.length} matched
+                            </span>
+                          </div>
+                          <div className="jl-req-bar" role="presentation">
+                            <span style={{ width: `${requirements.length ? (matched.length / requirements.length) * 100 : 0}%` }} />
+                          </div>
+                          <ul className="jl-req-list">
+                            {ordered.map((req) => {
+                              const isMatched = matchedSet.has(req.toLowerCase());
+                              return (
+                                <li key={req} className={isMatched ? 'jl-req-chip is-matched' : 'jl-req-chip'}>
+                                  {isMatched && (
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                  {req}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </section>
                       )}
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.8rem', paddingTop: '0.7rem', borderTop: '1px solid #f1f5f9' }}>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>{job.salary_range || ''}</span>
-                        <button type="button" onClick={() => handleEasyApply(job)}
-                          style={{ padding: '0.4rem 0.9rem', borderRadius: '8px', border: 'none', background: 'var(--accent-blue)', color: '#fff', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                      <footer className="jl-job-foot">
+                        <div className="jl-job-facts">
+                          {job.salary_range && <span className="jl-salary">{job.salary_range}</span>}
+                          <span className={`jl-tag jl-tag-${roleMatch ? 'role' : 'skills'}`}>
+                            {roleMatch ? 'Role match' : 'Skills match'}
+                          </span>
+                        </div>
+                        <button type="button" onClick={() => handleEasyApply(job)} className="jl-apply-btn">
                           Apply Now
                         </button>
-                      </div>
-                    </div>
+                      </footer>
+                    </article>
                   );
                 })}
               </div>
@@ -4899,6 +4985,8 @@ ${candidateName}`;
           </div>
         </div>
       )}
+
+      {renderMobileTabBar()}
     </div>
   );
 }
